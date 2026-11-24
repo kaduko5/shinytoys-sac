@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1600" />
+<title>Inbox unificada — Shiny Toys / Asgard (conceito)</title>
+<style>
+  :root {
+    --navy: #0B1F33;
+    --navy-2: #143049;
+    --ink: #152033;
+    --muted: #5C6B7A;
+    --faint: #8A97A6;
+    --line: #E6EAEF;
+    --bg: #EEF1F5;
+    --card: #FFFFFF;
+    --teal: #0F766E;
+    --teal-soft: #E6F4F2;
+    --orange: #E85D04;
+    --wa: #1FA855;
+    --wa-bg: #E8F8EE;
+    --mail: #3B7DED;
+    --mail-bg: #E8F0FE;
+    --ig: #C13584;
+    --ig-bg: #FBEAF3;
+    --portal: #6D4AFF;
+    --portal-bg: #F0ECFF;
+    --fin: #B45309;
+    --fin-bg: #FEF3C7;
+    --log: #1D4E89;
+    --log-bg: #E4EEF8;
+    --sac: #0F766E;
+    --sac-bg: #E6F4F2;
+    --danger: #BE123C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1600px;
+    height: 1000px;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Inter, "IBM Plex Sans", "Noto Sans", sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    width: 1600px;
+    height: 1000px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+
+  /* ===== Top bar ===== */
+  .topbar {
+    height: 58px;
+    flex: none;
+    background: var(--navy);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    padding: 0 18px 0 16px;
+    gap: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 230px;
+  }
+  .logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #F7B733, #E85D04);
+    display: grid;
+    place-items: center;
+    font-family: Outfit, Inter, sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  .brand-name {
+    font-family: Outfit, Inter, sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .brand-sub {
+    font-size: 10.5px;
+    color: #9BB0C3;
+    font-weight: 500;
+    margin-top: 1px;
+  }
+  .concept-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #F7B733;
+    border: 1px solid rgba(247,183,51,.45);
+    background: rgba(247,183,51,.1);
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .shared-number {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    padding: 6px 12px;
+    margin-left: 8px;
+  }
+  .wa-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #25D366;
+    box-shadow: 0 0 0 3px rgba(37,211,102,.25);
+  }
+  .shared-number .kicker {
+    font-size: 10px;
+    color: #9BB0C3;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .shared-number .num {
+    font-weight: 650;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .shared-note {
+    font-size: 11px;
+    color: #B7C6D4;
+    max-width: 168px;
+    line-height: 1.3;
+  }
+  .sectors {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    background: rgba(0,0,0,.2);
+    padding: 3px;
+    border-radius: 9px;
+  }
+  .sectors button {
+    border: 0;
+    background: transparent;
+    color: #C5D3DF;
+    font: 600 12px Inter, sans-serif;
+    padding: 6px 12px;
+    border-radius: 7px;
+    cursor: default;
+  }
+  .sectors button.active {
+    background: #fff;
+    color: var(--navy);
+  }
+  .agent-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255,255,255,.12);
+  }
+  .av {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 11px; color: #fff;
+    flex: none;
+  }
+  .agent-chip .av { background: #0F766E; }
+  .agent-chip .who { font-weight: 600; font-size: 12px; line-height: 1.15; }
+  .agent-chip .role { font-size: 10px; color: #9BB0C3; }
+
+  /* ===== Body ===== */
+  .body {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 332px 1fr 368px;
+    gap: 0;
+  }
+
+  /* ===== Left inbox ===== */
+  .inbox {
+    background: #fff;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .inbox-head {
+    padding: 12px 12px 8px;
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  .inbox-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 2px;
+  }
+  .inbox-title h1 {
+    font-family: Outfit, Inter, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .inbox-title span {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: var(--faint);
+    font-size: 12px;
+  }
+  .search svg { flex: none; }
+  .filters {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+  }
+  .chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+  .list { flex: 1; overflow: hidden; }
+  .conv {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 10px;
+    padding: 10px 12px 10px 12px;
+    border-bottom: 1px solid #F0F3F6;
+    cursor: default;
+    position: relative;
+  }
+  .conv.active {
+    background: var(--teal-soft);
+    box-shadow: inset 3px 0 0 var(--teal);
+  }
+  .conv.unread .cname { font-weight: 750; }
+  .ch-ico {
+    width: 36px; height: 36px; border-radius: 11px;
+    display: grid; place-items: center;
+    position: relative;
+  }
+  .ch-ico svg { width: 18px; height: 18px; }
+  .ch-wa { background: var(--wa-bg); color: var(--wa); }
+  .ch-mail { background: var(--mail-bg); color: var(--mail); }
+  .ch-ig { background: var(--ig-bg); color: var(--ig); }
+  .ch-portal { background: var(--portal-bg); color: var(--portal); }
+  .unread-dot {
+    position: absolute; right: -2px; top: -2px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--teal); border: 2px solid #fff;
+  }
+  .crow { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .cname { font-size: 13px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ctime { font-size: 10.5px; color: var(--faint); flex: none; font-variant-numeric: tabular-nums; }
+  .preview { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0 6px; }
+  .ctags { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tag {
+    font-size: 10px;
+    font-weight: 650;
+    padding: 2px 6px;
+    border-radius: 999px;
+    letter-spacing: 0.01em;
+  }
+  .tag-sac { background: var(--sac-bg); color: var(--sac); }
+  .tag-fin { background: var(--fin-bg); color: var(--fin); }
+  .tag-log { background: var(--log-bg); color: var(--log); }
+  .tag-ass { background: #F3F5F7; color: var(--muted); }
+
+  /* ===== Thread ===== */
+  .thread {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: #F7F8FA;
+  }
+  .thread-head {
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 18px 10px;
+    flex: none;
+  }
+  .th-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .th-name {
+    font-family: Outfit, Inter, sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .th-meta { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10.5px; font-weight: 650;
+    padding: 2px 7px; border-radius: 999px;
+  }
+  .pill-wa { background: var(--wa-bg); color: #157A3C; }
+  .pill-mail { background: var(--mail-bg); color: #1D4ED8; }
+  .assign-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .assigned {
+    font-size: 12px;
+    color: var(--ink);
+    background: var(--teal-soft);
+    border: 1px solid #CDE6E2;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .assigned em { font-style: normal; color: var(--teal); }
+  .btn {
+    border: 1px solid var(--line);
+    background: #fff;
+    font: 650 11.5px Inter, sans-serif;
+    color: var(--ink);
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: default;
+  }
+  .btn-fin { border-color: #F3D39A; background: #FFFBEB; color: var(--fin); }
+  .btn-log { border-color: #C9DBEE; background: #F4F8FC; color: var(--log); }
+  .proto { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .proto b { color: var(--ink); font-weight: 700; }
+  .shared-banner {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #1F4A3A;
+    background: #E8F8EE;
+    border: 1px solid #C6EBD4;
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .msgs {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 14px 18px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .day {
+    align-self: center;
+    font-size: 10.5px;
+    font-weight: 650;
+    color: var(--faint);
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 2px 10px;
+    border-radius: 999px;
+  }
+  .msg {
+    max-width: 86%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .msg.in { align-self: flex-start; }
+  .msg.out { align-self: flex-end; align-items: flex-end; }
+  .msg.sys { align-self: center; max-width: 100%; }
+  .bubble {
+    padding: 9px 12px;
+    border-radius: 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .msg.in .bubble {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-top-left-radius: 5px;
+  }
+  .msg.out .bubble {
+    background: #143049;
+    color: #fff;
+    border-top-right-radius: 5px;
+  }
+  .msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    color: var(--faint);
+    padding: 0 2px;
+  }
+  .sys-note {
+    font-size: 11px;
+    color: var(--muted);
+    background: #fff;
+    border: 1px dashed var(--line);
+    padding: 5px 10px;
+    border-radius: 8px;
+  }
+
+  .composer {
+    flex: none;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    padding: 10px 16px 14px;
+  }
+  .composer-label {
+    font-size: 11px;
+    font-weight: 650;
+    color: #157A3C;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 7px;
+  }
+  .box {
+    border: 1px solid #D5DCE3;
+    border-radius: 12px;
+    padding: 10px 12px 8px;
+    background: #FAFBFC;
+    min-height: 72px;
+  }
+  .box .placeholder { color: #9AA6B2; font-size: 13px; }
+  .box-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+  .icons { display: flex; gap: 8px; color: var(--muted); }
+  .send {
+    background: var(--wa);
+    color: #fff;
+    border: 0;
+    font: 700 12px Inter, sans-serif;
+    padding: 7px 14px;
+    border-radius: 8px;
+  }
+  .composer-foot {
+    margin-top: 6px;
+    font-size: 10.5px;
+    color: var(--faint);
+  }
+
+  /* ===== Cliente 360 ===== */
+  .panel {
+    background: #fff;
+    border-left: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .panel-head {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  .panel-kicker {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--teal);
+  }
+  .cust {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 6px;
+  }
+  .cust-av {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: #143049; color: #fff;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 13px;
+    font-family: Outfit, Inter, sans-serif;
+    flex: none;
+  }
+  .cust h2 {
+    font-family: Outfit, Inter, sans-serif;
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .ex {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--faint);
+    background: #F3F5F7;
+    padding: 1px 6px;
+    border-radius: 999px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .fields {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 3px 8px;
+    font-size: 11.5px;
+  }
+  .fields dt { color: var(--faint); font-weight: 500; }
+  .fields dd { color: var(--ink); font-weight: 550; }
+  .channels-row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+
+  .block { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .block h3 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  .src {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0;
+    text-transform: none;
+    margin-top: 1px;
+    margin-bottom: 8px;
+  }
+  .hist { display: flex; flex-direction: column; gap: 6px; }
+  .hist-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+    font-size: 11.5px;
+    padding: 6px 8px;
+    background: #F7F8FA;
+    border-radius: 8px;
+  }
+  .hist-item .p { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hist-item .s { font-size: 10.5px; color: var(--muted); }
+  .st {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 999px;
+    align-self: start;
+  }
+  .st-open { background: #DBEAFE; color: #1D4ED8; }
+  .st-ok { background: #DCFCE7; color: #166534; }
+  .row-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 8px;
+    margin-bottom: 6px;
+    font-size: 11.5px;
+  }
+  .row-card:last-child { margin-bottom: 0; }
+  .row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .row-top b { font-weight: 700; }
+  .row-top .val { font-weight: 650; font-variant-numeric: tabular-nums; }
+  .row-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; display: flex; justify-content: space-between; }
+  .src-bar {
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    margin: -7px -8px 6px;
+  }
+  .src-shiny { background: var(--portal); }
+  .src-erp { background: #1D4E89; }
+  .src-nf { background: #B45309; }
+  .items { margin-top: 4px; padding-left: 14px; color: var(--muted); font-size: 11px; }
+  .watermark {
+    font-size: 10px;
+    color: var(--faint);
+    text-align: center;
+    padding: 8px 12px 10px;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">S</div>
+        <div>
+          <div class="brand-name">Shiny Toys / Asgard</div>
+          <div class="brand-sub">Ferramenta de atendimento</div>
+        </div>
+      </div>
+      <span class="concept-badge">Conceito · dados de exemplo</span>
+      <div class="shared-number">
+        <span class="wa-dot"></span>
+        <div>
+          <div class="kicker">WhatsApp compartilhado</div>
+          <div class="num">+55 11 97246-5529 · Sac ShinyToys</div>
+        </div>
+      </div>
+      <div class="sectors" aria-label="Filtro por setor">
+        <button>Todos</button>
+        <button class="active">SAC</button>
+        <button>Financeiro</button>
+        <button>Logística</button>
+      </div>
+      <div class="agent-chip">
+        <div class="av">AS</div>
+        <div>
+          <div class="who">Ana Souza</div>
+          <div class="role">Atendente SAC</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="body">
+      <!-- LEFT -->
+      <aside class="inbox">
+        <div class="inbox-head">
+          <div class="inbox-title">
+            <h1>Inbox unificada</h1>
+            <span>7 conversas · fila única</span>
+          </div>
+          <div class="search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+            Buscar cliente, pedido ou protocolo
+          </div>
+          <div class="filters">
+            <span class="chip on">Todas</span>
+            <span class="chip">Não lidas</span>
+            <span class="chip">Minhas</span>
+          </div>
+        </div>
+        <div class="list">
+          <article class="conv active unread">
+            <div class="ch-ico ch-wa">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.48 2 2.02 6.45 2.02 12c0 1.76.46 3.48 1.34 5L2 22l5.14-1.34A9.93 9.93 0 0 0 12.04 22c5.56 0 10.02-4.45 10.02-10 0-2.67-1.04-5.17-2.01-7.09zM12.04 20.15a8.17 8.17 0 0 1-4.16-1.14l-.3-.18-3.05.8.82-2.97-.2-.3A8.1 8.1 0 0 1 3.89 12c0-4.47 3.64-8.11 8.15-8.11 2.17 0 4.21.85 5.75 2.38a8.07 8.07 0 0 1 2.38 5.73c0 4.47-3.64 8.15-8.13 8.15zm4.47-6.07c-.24-.12-1.45-.71-1.67-.8-.22-.08-.38-.12-.55.12-.16.24-.63.8-.77.96-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.12-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.33-.75-1.82-.2-.48-.4-.41-.55-.42h-.47c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.52.1.46-.07 1.45-.59 1.65-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28z"/></svg>
+              <span class="unread-dot"></span>
+            </div>
+            <div>
+              <div class="crow"><div class="cname">Brinquedos Mundo Kids</div><div class="ctime">10:42</div></div>
+              <div class="preview">O pedido 4521 já saiu? Também preciso da previsão…</div>
+              <div class="ctags"><span class="tag tag-sac">SAC</span><span class="tag tag-ass">Ana Souza</span></div>
+            </div>
+          </article>
+
+          <article class="conv">
+            <div class="ch-ico ch-mail">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></svg>
+            </div>
+            <div>
+              <div class="crow"><div class="cname">Loja Encantada Comércio</div><div class="ctime">09:15</div></div>
+              <div class="preview">Segue boleto da NF 88421 — podem confirmar o…</div>
+              <div class="ctags"><span class="tag tag-fin">Financeiro</span><span class="tag tag-ass">Ricardo Lima</span></div>
+            </div>
+          </article>
+
+          <article class="conv unread">
+            <div class="ch-ico ch-wa">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.48 2 2.02 6.45 2.02 12c0 1.76.46 3.48 1.34 5L2 22l5.14-1.34A9.93 9.93 0 0 0 12.04 22c5.56 0 10.02-4.45 10.02-10 0-2.67-1.04-5.17-2.01-7.09zM12.04 20.15a8.17 8.17 0 0 1-4.16-1.14l-.3-.18-3.05.8.82-2.97-.2-.3A8.1 8.1 0 0 1 3.89 12c0-4.47 3.64-8.11 8.15-8.11 2.17 0 4.21.85 5.75 2.38a8.07 8.07 0 0 1 2.38 5.73c0 4.47-3.64 8.15-8.13 8.15zm4.47-6.07c-.24-.12-1.45-.71-1.67-.8-.22-.08-.38-.12-.55.12-.16.24-.63.8-.77.96-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.12-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.33-.75-1.82-.2-.48-.4-.41-.55-.42h-.47c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.52.1.46-.07 1.45-.59 1.65-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28z"/></svg>
+              <span class="unread-dot"></span>
+            </div>
+            <div>
+              <div class="crow"><div class="cname">Distribuidora Fun Park</div><div class="ctime">08:50</div></div>
+              <div class="preview">Preciso do rastreio do lote que saiu ontem…</div>
+              <div class="ctags"><span class="tag tag-log">Logística</span><span class="tag tag-ass">Beatriz Nunes</span></div>
+            </div>
+          </article>
+
+          <article class="conv">
+            <div class="ch-ico ch-ig">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+            </div>
+            <div>
+              <div class="crow"><div class="cname">Atacado Sonho de Criança</div><div class="ctime">Ontem</div></div>
+              <div class="preview">Qual o prazo do restock da linha de bonecas?</div>
+              <div class="ctags"><span class="tag tag-sac">SAC</span><span class="tag tag-ass">Sem atribuição</span></div>
+            </div>
+          </article>
+
+          <article class="conv">
+            <div class="ch-ico ch-portal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>
+            </div>
+            <div>
+              <div class="crow"><div class="cname">Kids House Atacado</div><div class="ctime">Ontem</div></div>
+              <div class="preview">Abriu chamado no portal: divergência no pedido PT-4402</div>
+              <div class="ctags"><span class="tag tag-sac">SAC</span><span class="tag tag-ass">Ana Souza</span></div>
+            </div>
+          </article>
+
+          <article class="conv">
+            <div class="ch-ico ch-mail">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></svg>
+            </div>
+            <div>
+              <div class="crow"><div class="cname">Magia Brinquedos Ltda</div><div class="ctime">20/11</div></div>
+              <div class="preview">Solicito 2ª via da NF e XML do faturamento…</div>
+              <div class="ctags"><span class="tag tag-fin">Financeiro</span><span class="tag tag-ass">Ricardo Lima</span></div>
+            </div>
+          </article>
+
+          <article class="conv">
+            <div class="ch-ico ch-wa">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.48 2 2.02 6.45 2.02 12c0 1.76.46 3.48 1.34 5L2 22l5.14-1.34A9.93 9.93 0 0 0 12.04 22c5.56 0 10.02-4.45 10.02-10 0-2.67-1.04-5.17-2.01-7.09zM12.04 20.15a8.17 8.17 0 0 1-4.16-1.14l-.3-.18-3.05.8.82-2.97-.2-.3A8.1 8.1 0 0 1 3.89 12c0-4.47 3.64-8.11 8.15-8.11 2.17 0 4.21.85 5.75 2.38a8.07 8.07 0 0 1 2.38 5.73c0 4.47-3.64 8.15-8.13 8.15zm4.47-6.07c-.24-.12-1.45-.71-1.67-.8-.22-.08-.38-.12-.55.12-.16.24-.63.8-.77.96-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.12-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.33-.75-1.82-.2-.48-.4-.41-.55-.42h-.47c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.52.1.46-.07 1.45-.59 1.65-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28z"/></svg>
+            </div>
+            <div>
+              <div class="crow"><div class="cname">Playtime Atacado</div><div class="ctime">20/11</div></div>
+              <div class="preview">Troca da caixa danificada no recebimento do pedido 4380</div>
+              <div class="ctags"><span class="tag tag-sac">SAC</span><span class="tag tag-ass">Ana Souza</span></div>
+            </div>
+          </article>
+        </div>
+      </aside>
+
+      <!-- CENTER -->
+      <section class="thread">
+        <div class="thread-head">
+          <div class="th-top">
+            <div>
+              <div class="th-name">Brinquedos Mundo Kids Ltda</div>
+              <div class="th-meta">
+                <span class="pill pill-wa">WhatsApp</span>
+                <span>+55 11 98888-1234</span>
+                <span>·</span>
+                <span>também por e-mail</span>
+                <span class="pill pill-mail">E-mail</span>
+              </div>
+            </div>
+            <div class="proto">Protocolo <b>SAC-2026-000188</b></div>
+          </div>
+          <div class="assign-row">
+            <span class="assigned">Atribuída a: <em>Ana Souza (SAC)</em></span>
+            <button class="btn btn-fin">Transferir para Financeiro</button>
+            <button class="btn btn-log">Transferir para Logística</button>
+          </div>
+          <div class="shared-banner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+            Todos os atendentes (SAC, Financeiro e Logística) respondem pelo mesmo número +55 11 97246-5529 · Sac ShinyToys
+          </div>
+        </div>
+
+        <div class="msgs">
+          <div class="day">18 de novembro de 2026</div>
+
+          <div class="msg in">
+            <div class="bubble">Bom dia! Gostaríamos de confirmar o pedido 4521 (portal) e saber o prazo de faturamento. Segue também o e-mail de cobrança atualizado: financeiro@mundokids.exemplo</div>
+            <div class="msg-meta">
+              <span class="pill pill-mail">Entrou por e-mail</span>
+              <span>Carla Mendes · 18/11, 09:12</span>
+            </div>
+          </div>
+
+          <div class="msg out">
+            <div class="bubble">Bom dia, Carla. Pedido 4521 recebido. Vamos acompanhar o faturamento e retornamos com a previsão.</div>
+            <div class="msg-meta">
+              <span class="pill pill-mail">Saiu por e-mail</span>
+              <span>Ana Souza · 18/11, 09:40</span>
+            </div>
+          </div>
+
+          <div class="day">Hoje, 21 de novembro</div>
+
+          <div class="msg in">
+            <div class="bubble">Oi, o pedido 4521 já saiu? Também preciso da previsão de chegada, por favor.</div>
+            <div class="msg-meta">
+              <span class="pill pill-wa">Entrou por WhatsApp</span>
+              <span>Carla Mendes · 10:42</span>
+            </div>
+          </div>
+
+          <div class="msg sys">
+            <div class="sys-note">Conversa roteada para o setor SAC e atribuída a Ana Souza · mesmo cadastro do e-mail de 18/11</div>
+          </div>
+
+          <div class="msg out">
+            <div class="bubble">Oi, Carla! Já localizei o 4521 no ERP: está em separação, prazo de faturamento 25/11/2026. Confiro o transporte e te retorno a previsão de chegada.</div>
+            <div class="msg-meta">
+              <span class="pill pill-wa">Saiu por WhatsApp · +55 11 97246-5529</span>
+              <span>Ana Souza · 10:46</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="composer-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.5 2 2 6.37 2 11.76c0 1.72.46 3.4 1.34 4.88L2 22l5.53-1.44A10.2 10.2 0 0 0 12.04 21.5C17.58 21.5 22.1 17.13 22.1 11.76 22.1 6.37 17.58 2 12.04 2z"/></svg>
+            Responder via WhatsApp (+55 11 97246-5529)
+          </div>
+          <div class="box">
+            <div class="placeholder">Escreva a resposta… ela sai pelo número compartilhado Sac ShinyToys</div>
+            <div class="box-actions">
+              <div class="icons">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.4 11.6 12 21a6 6 0 0 1-8.5-8.5l9.4-9.4a4 4 0 0 1 5.7 5.7L9.2 18.2a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-4 4-2-2-5 5"/></svg>
+              </div>
+              <button class="send">Enviar</button>
+            </div>
+          </div>
+          <div class="composer-foot">A resposta usa o mesmo número para qualquer atendente. Histórico de e-mail e WhatsApp permanece nesta conversa.</div>
+        </div>
+      </section>
+
+      <!-- RIGHT -->
+      <aside class="panel">
+        <div class="panel-head">
+          <div class="panel-kicker">Cliente 360</div>
+          <div class="cust">
+            <div class="cust-av">MK</div>
+            <div>
+              <h2>Brinquedos Mundo Kids Ltda <span class="ex">dados de exemplo</span></h2>
+            </div>
+          </div>
+          <dl class="fields">
+            <dt>CNPJ</dt><dd>12.345.678/0001-90</dd>
+            <dt>Telefone</dt><dd>+55 11 98888-1234</dd>
+            <dt>E-mail</dt><dd>contato@mundokids.exemplo</dd>
+          </dl>
+          <div class="channels-row">
+            <span class="pill pill-wa">WhatsApp</span>
+            <span class="pill pill-mail">E-mail</span>
+            <span class="pill" style="background:#F0ECFF;color:#5B3FD6">Portal B2B</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>Histórico de atendimentos</h3>
+          <div class="hist">
+            <div class="hist-item">
+              <div>
+                <div class="p">SAC-2026-000188</div>
+                <div class="s">Aberto hoje · prazo do pedido 4521</div>
+              </div>
+              <span class="st st-open">Aberto</span>
+            </div>
+            <div class="hist-item">
+              <div>
+                <div class="p">SAC-2026-000091</div>
+                <div class="s">08/10 · troca de caixa danificada</div>
+              </div>
+              <span class="st st-ok">Resolvido</span>
+            </div>
+            <div class="hist-item">
+              <div>
+                <div class="p">SAC-2026-000044</div>
+                <div class="s">22/08 · dúvida de prazo</div>
+              </div>
+              <span class="st st-ok">Resolvido</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>Pedidos do portal</h3>
+          <span class="src">Fonte: Portal B2B (Supabase DADOSAI · schema shiny) · dados de exemplo</span>
+          <div class="row-card">
+            <div class="src-bar src-shiny"></div>
+            <div class="row-top"><b>PT-4521</b><span class="val">R$ 12.480,00</span></div>
+            <div class="row-sub"><span>18/11/2026</span><span>Aguardando faturamento</span></div>
+          </div>
+          <div class="row-card">
+            <div class="src-bar src-shiny"></div>
+            <div class="row-top"><b>PT-4398</b><span class="val">R$ 8.210,00</span></div>
+            <div class="row-sub"><span>02/11/2026</span><span>Faturado</span></div>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>Status e prazo</h3>
+          <span class="src">Fonte: ERP (erp.status_pedidos) · dados de exemplo</span>
+          <div class="row-card">
+            <div class="src-bar src-erp"></div>
+            <div class="row-top"><b>Pedido 4521</b><span class="st st-open">Em separação</span></div>
+            <div class="row-sub"><span>Prazo de faturamento</span><span>25/11/2026</span></div>
+          </div>
+          <div class="row-card">
+            <div class="src-bar src-erp"></div>
+            <div class="row-top"><b>Pedido 4398</b><span class="st st-ok">Faturado</span></div>
+            <div class="row-sub"><span>Entregue em</span><span>12/11/2026</span></div>
+          </div>
+        </div>
+
+        <div class="block" style="border-bottom:0">
+          <h3>Nota fiscal e itens</h3>
+          <span class="src">Fonte: ERP (erp.nf_itens) · dados de exemplo</span>
+          <div class="row-card">
+            <div class="src-bar src-nf"></div>
+            <div class="row-top"><b>NF 88421</b><span>Pedido 4398</span></div>
+            <ul class="items">
+              <li>Boneca Articulada — 24 un.</li>
+              <li>Kit Massinha Colorida — 36 un.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="watermark">Cadastro único por cliente · canais e pedidos no mesmo painel · mockup conceitual</div>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
