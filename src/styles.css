@@ -274,3 +274,14 @@ h1, h2, h3, h4 { margin: 0; }
   .tr { grid-template-columns: 1fr; }
   .tr.th { display: none; }
 }
+
+/* anexos */
+.midia { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+.midia-btn { background: rgba(0,0,0,.05); border: 1px dashed #9ca3af; border-radius: 8px; padding: 8px 10px; text-align: left; color: inherit; text-decoration: none; font-size: 13px; }
+.saida .midia-btn { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.4); }
+.midia-img { max-width: 280px; max-height: 280px; border-radius: 8px; display: block; }
+.midia audio { width: 260px; max-width: 100%; }
+.midia-off { font-size: 12px; opacity: .7; font-style: italic; }
+.anexo-sel { display: flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: 13px; }
+.anexo-sel button { background: none; border: 0; color: var(--vermelho); font-weight: 700; }
+.btn-clipe { background: none; border: 1px solid var(--borda); border-radius: 8px; padding: 6px 10px; font-size: 13px; }

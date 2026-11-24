@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { api, DRY_RUN, enviar, mensagemErro } from '../lib/api';
+import { ANEXO_ACEITOS, api, DRY_RUN, enviar, enviarAnexo, mensagemErro } from '../lib/api';
+import Midia, { ehMidia } from './Midia';
 import type { ConversaItem, DetalheConversa, Mensagem, Perfil, Setor, TicketCompleto, TicketLinha, TipoTicket } from '../lib/types';
 import { CANAL_ROTULO, chaveDia, hora, nomeSetor, restante, separadorDia, STATUS_TICKET, telefone } from '../lib/format';
 import ColunaDireita from './ColunaDireita';
@@ -27,6 +28,7 @@ export default function Conversa({ conversaId, perfil, setores, tipos, versao, o
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
   const [texto, setTexto] = useState('');
+  const [anexo, setAnexo] = useState<File | null>(null);
   const [modoNota, setModoNota] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [acao, setAcao] = useState<Acao>(null);
@@ -85,7 +87,7 @@ export default function Conversa({ conversaId, perfil, setores, tipos, versao, o
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'sac', table: 'mensagens', filter: `conversa_id=eq.${conversaId}` }, (p) => {
         const n = p.new as Partial<Mensagem> & { id: string };
-        setMsgs((lista) => lista.map((x) => (x.id === n.id ? { ...x, status: n.status ?? x.status } : x)));
+        setMsgs((lista) => lista.map((x) => (x.id === n.id ? { ...x, status: n.status ?? x.status, tipo: n.tipo ?? x.tipo, midia_status: n.midia_status ?? x.midia_status, midia_mime: n.midia_mime ?? x.midia_mime, midia_nome: n.midia_nome ?? x.midia_nome, midia_tamanho: n.midia_tamanho ?? x.midia_tamanho } : x)));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -131,6 +133,18 @@ export default function Conversa({ conversaId, perfil, setores, tipos, versao, o
 
   async function enviarResposta() {
     const t = texto.trim();
+    if (anexo && !modoNota && ehWa) {
+      setEnviando(true); setErro(''); setAviso('');
+      try {
+        const r = await enviarAnexo(conversaId, anexo, t);
+        if (r.dry_run) setAviso(`Modo teste: anexo "${anexo.name}" conferido, nada foi enviado ao cliente.`);
+        else { setTexto(''); setAnexo(null); const m = await api.mensagens(conversaId); rolarFim.current = true; setMsgs(m ?? []); }
+      } catch (e) {
+        setErro(mensagemErro(e));
+        if ((e as Error).message === 'sessao_expirada') supabase.auth.signOut();
+      } finally { setEnviando(false); }
+      return;
+    }
     if (!t) return;
     setEnviando(true); setErro(''); setAviso('');
     const sug = sugestaoAtiva.current;
@@ -235,8 +249,8 @@ export default function Conversa({ conversaId, perfil, setores, tipos, versao, o
             return [sep, (
               <div key={m.id} className={`msg ${saida ? 'saida' : 'entrada'}`}>
                 <div className="bolha quebra">
-                  {m.tipo !== 'text' && <span className="tipo-midia">[{m.tipo}] </span>}
-                  {m.corpo_texto}
+                  {ehMidia(m) ? <Midia m={m} /> : m.tipo !== 'text' && <span className="tipo-midia">[{m.tipo}] </span>}
+                  {ehMidia(m) && /^\[(image|audio|video|document|sticker)\]$/.test(m.corpo_texto ?? '') ? null : m.corpo_texto}
                 </div>
                 <div className="meta">
                   <span className={saida ? 'tag escuro-claro' : 'tag verde'}>{saida ? `Saiu por ${rotuloCanal}` : `Entrou por ${rotuloCanal}`}</span>
@@ -273,6 +287,8 @@ export default function Conversa({ conversaId, perfil, setores, tipos, versao, o
                 setTexto={setTexto}
                 enviando={enviando}
                 enviarResposta={enviarResposta}
+                anexo={anexo}
+                setAnexo={setAnexo}
               />
             </>
           )}
@@ -334,7 +350,7 @@ export default function Conversa({ conversaId, perfil, setores, tipos, versao, o
 }
 
 function CompositorCorpo({
-  ehWa, modoNota, setModoNota, janelaAberta, det, ticket, macros, setMacros, texto, setTexto, enviando, enviarResposta,
+  ehWa, modoNota, setModoNota, janelaAberta, det, ticket, macros, setMacros, texto, setTexto, enviando, enviarResposta, anexo, setAnexo,
 }: {
   ehWa: boolean;
   modoNota: boolean;
@@ -348,6 +364,8 @@ function CompositorCorpo({
   setTexto: (v: string) => void;
   enviando: boolean;
   enviarResposta: () => void;
+  anexo: File | null;
+  setAnexo: (f: File | null) => void;
 }) {
   if (!ehWa) {
     return (
@@ -382,16 +400,30 @@ function CompositorCorpo({
         </div>
       ) : (
         <div className={`caixa ${modoNota ? 'caixa-nota' : ''}`}>
+          {anexo && !modoNota && (
+            <div className="anexo-sel">
+              📎 <b>{anexo.name}</b> <small className="muted">{(anexo.size / 1024 / 1024).toFixed(1)} MB</small>
+              <button type="button" onClick={() => setAnexo(null)} title="Remover anexo">✕</button>
+            </div>
+          )}
           <textarea
-            placeholder={modoNota ? 'Nota interna (não vai para o cliente)…' : 'Escreva a resposta… ela sai pelo número compartilhado Sac ShinyToys'}
+            placeholder={modoNota ? 'Nota interna (não vai para o cliente)…' : anexo ? 'Legenda (opcional)…' : 'Escreva a resposta… ela sai pelo número compartilhado Sac ShinyToys'}
             value={texto}
             maxLength={4096}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) enviarResposta(); }}
           />
           <div className="caixa-rodape">
-            <small className="muted">{modoNota ? 'Visível só para a equipe.' : DRY_RUN ? 'Modo teste: nada é enviado ao cliente.' : 'Ctrl+Enter para enviar.'}</small>
-            <button type="button" className={`btn ${modoNota ? 'amarelo' : 'verde'}`} disabled={enviando || !texto.trim()} onClick={enviarResposta}>
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {!modoNota && (
+                <label className="btn-clipe" title="Anexar foto, PDF, planilha, áudio ou vídeo" style={{ margin: 0, cursor: 'pointer' }}>
+                  📎 Anexar
+                  <input type="file" accept={ANEXO_ACEITOS} hidden onChange={(e) => { setAnexo(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+                </label>
+              )}
+              <small className="muted">{modoNota ? 'Visível só para a equipe.' : DRY_RUN ? 'Modo teste: nada é enviado ao cliente.' : 'Ctrl+Enter para enviar.'}</small>
+            </span>
+            <button type="button" className={`btn ${modoNota ? 'amarelo' : 'verde'}`} disabled={enviando || (!texto.trim() && !(anexo && !modoNota))} onClick={enviarResposta}>
               {enviando ? 'Enviando…' : modoNota ? 'Salvar nota' : DRY_RUN ? 'Testar envio' : 'Enviar'}
             </button>
           </div>

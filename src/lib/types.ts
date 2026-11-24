@@ -245,6 +245,10 @@ export interface Mensagem {
   atendente_id: string | null;
   atendente_nome?: string | null;
   enviado_por?: string | null;
+  midia_status?: 'pendente' | 'ok' | 'erro' | 'grande' | 'expirada' | null;
+  midia_mime?: string | null;
+  midia_nome?: string | null;
+  midia_tamanho?: number | null;
 }
 
 export interface Contato {

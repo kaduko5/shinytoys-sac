@@ -40,6 +40,13 @@ const ERROS: Record<string, string> = {
   canal_invalido: 'Canal inválido para envio.',
   graph_api: 'Falha no envio pela Meta (WhatsApp). Tente de novo em instantes.',
   nao_configurado: 'O envio ainda não está configurado no servidor.',
+  tipo_nao_suportado: 'Tipo de arquivo não aceito pelo WhatsApp. Use foto (JPG/PNG), PDF, Excel, Word, áudio ou vídeo MP4.',
+  arquivo_grande: 'Arquivo grande demais (foto até 5 MB; demais até 16 MB).',
+  arquivo_obrigatorio: 'Escolha um arquivo.',
+  legenda_longa: 'Legenda longa demais (máximo 1024 caracteres).',
+  midia_expirada: 'Este arquivo não está mais disponível na Meta (mais de 30 dias).',
+  midia_grande: 'Arquivo grande demais para guardar (acima de 25 MB).',
+  midia_erro: 'Não foi possível baixar o arquivo. Tente de novo.',
   sessao_expirada: 'Sua sessão expirou. Entre de novo.',
   limite: 'Muitas chamadas seguidas. Aguarde um minuto.',
   ia_indisponivel: 'A IA não respondeu agora. Tente de novo.',
@@ -243,3 +250,40 @@ export async function ia(
   }
   return data as IaResposta;
 }
+async function erroFuncao(error: unknown): Promise<never> {
+  if (error instanceof FunctionsHttpError) {
+    const status = error.context.status;
+    if (status === 401) throw new Error('sessao_expirada');
+    let corpo: { erro?: string; mensagem?: string } = {};
+    try { corpo = await error.context.json(); } catch { /* sem corpo */ }
+    throw new Error(corpo.erro || corpo.mensagem || `http_${status}`);
+  }
+  throw error;
+}
+
+const cacheUrl = new Map<string, { url: string; ate: number }>();
+
+/** Link temporário (1h) para ver/baixar o anexo de uma mensagem. */
+export async function urlMidia(mensagem_id: string): Promise<{ url: string; mime: string | null; nome: string | null }> {
+  const c = cacheUrl.get(mensagem_id);
+  if (c && c.ate > Date.now()) return { url: c.url, mime: null, nome: null };
+  const { data, error } = await supabase.functions.invoke('sac-midia', { body: { acao: 'url', mensagem_id } });
+  if (error) await erroFuncao(error);
+  cacheUrl.set(mensagem_id, { url: data.url, ate: Date.now() + 50 * 60 * 1000 });
+  return data;
+}
+
+/** Envia um anexo pelo WhatsApp (respeita o modo teste). */
+export async function enviarAnexo(conversa_id: string, arquivo: File, legenda: string): Promise<{ ok: boolean; dry_run?: boolean }> {
+  const fd = new FormData();
+  fd.append('acao', 'enviar');
+  fd.append('conversa_id', conversa_id);
+  fd.append('legenda', legenda);
+  fd.append('dry_run', DRY_RUN ? 'true' : 'false');
+  fd.append('arquivo', arquivo, arquivo.name);
+  const { data, error } = await supabase.functions.invoke('sac-midia', { body: fd });
+  if (error) await erroFuncao(error);
+  return data;
+}
+
+export const ANEXO_ACEITOS = '.jpg,.jpeg,.png,.pdf,.txt,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.mp3,.m4a,.aac,.ogg,.amr,.mp4,.3gp,image/jpeg,image/png,application/pdf,audio/*,video/mp4';
