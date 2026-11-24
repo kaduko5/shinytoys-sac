@@ -42,17 +42,74 @@ export function restante(iso: string | null): string {
   return h > 0 ? `${h}h ${String(m).padStart(2, '0')}min` : `${m}min`;
 }
 
+export function atrasoDesde(iso: string | null): string {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms <= 0) return 'agora';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h >= 24) return `${Math.floor(h / 24)}d`;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+
 export const iniciais = (n: string | null | undefined) =>
   (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 
 export const STATUS_TICKET: Record<string, string> = {
+  novo: 'Novo',
   aberto: 'Aberto',
-  em_atendimento: 'Em atendimento',
-  aguardando_cliente: 'Aguardando cliente',
+  pendente: 'Pendente',
+  em_espera: 'Em espera',
+  resolvido: 'Resolvido',
   fechado: 'Fechado',
+};
+
+export const STATUS_EDITAVEIS = ['aberto', 'pendente', 'em_espera', 'resolvido'] as const;
+
+export const PRIORIDADE_ROTULO: Record<string, string> = {
+  baixa: 'Baixa',
+  normal: 'Normal',
+  alta: 'Alta',
+  urgente: 'Urgente',
+};
+
+export const CANAL_ROTULO: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  telefone: 'Telefone',
+  email: 'E-mail',
+  interno: 'Interno',
 };
 
 export const NOME_SETOR: Record<string, string> = {
   sac: 'SAC', financeiro: 'Financeiro', comercial: 'Comercial', logistica: 'Logística',
 };
 export const nomeSetor = (id: string | null | undefined) => (id ? NOME_SETOR[id] ?? id : '—');
+
+/** vermelho | amarelo | verde | cinza */
+export function corSla(ticket: {
+  status: string;
+  sla_atrasado?: boolean;
+  sla_proximo_vencimento?: string | null;
+  aberto_em?: string;
+}): 'vermelho' | 'amarelo' | 'verde' | 'cinza' {
+  if (ticket.status === 'resolvido' || ticket.status === 'fechado') return 'cinza';
+  if (ticket.sla_atrasado) return 'vermelho';
+  const alvo = ticket.sla_proximo_vencimento;
+  if (!alvo || !ticket.aberto_em) return 'verde';
+  const total = new Date(alvo).getTime() - new Date(ticket.aberto_em).getTime();
+  const rest = new Date(alvo).getTime() - Date.now();
+  if (total > 0 && rest / total < 0.25) return 'amarelo';
+  return 'verde';
+}
+
+export const EVENTO_HIST: Record<string, string> = {
+  criado: 'Criado',
+  status: 'Status',
+  setor: 'Setor',
+  atribuicao: 'Atribuição',
+  prioridade: 'Prioridade',
+  tipo: 'Tipo',
+  tags: 'Tags',
+  assunto: 'Assunto',
+  mesclado: 'Mesclado',
+};
