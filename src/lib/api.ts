@@ -1,10 +1,30 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import type { Atendente, ConversaItem, DetalheConversa, Mensagem, Perfil, Setor } from './types';
+import type {
+  AbrirTicketResult,
+  AplicarMacroResult,
+  Atendente,
+  ConversaItem,
+  DetalheConversa,
+  FiltrosTicket,
+  HistoricoEvento,
+  IaResposta,
+  IaSugestaoHist,
+  MacroTicket,
+  Mensagem,
+  Perfil,
+  Setor,
+  TagItem,
+  TicketCompleto,
+  TicketLinha,
+  TipoTicket,
+  ViewItem,
+} from './types';
 
 const ERROS: Record<string, string> = {
   acesso_negado: 'Você não tem permissão para isso.',
   ticket_fechado: 'O ticket está fechado. Reabra antes de continuar.',
+  ticket_mesclado: 'Este ticket foi mesclado e não pode ser reaberto.',
   ticket_ja_fechado: 'Este ticket já está fechado.',
   ticket_nao_esta_fechado: 'Este ticket não está fechado.',
   ticket_antigo: 'Só dá para reabrir o ticket mais recente da conversa.',
@@ -21,12 +41,39 @@ const ERROS: Record<string, string> = {
   graph_api: 'Falha no envio pela Meta (WhatsApp). Tente de novo em instantes.',
   nao_configurado: 'O envio ainda não está configurado no servidor.',
   sessao_expirada: 'Sua sessão expirou. Entre de novo.',
+  limite: 'Muitas chamadas seguidas. Aguarde um minuto.',
+  ia_indisponivel: 'A IA não respondeu agora. Tente de novo.',
+  acao_invalida: 'Ação inválida.',
+  ticket_invalido: 'Ticket não encontrado.',
+  sugestao_inexistente: 'Sugestão não encontrada.',
+  canal_invalido_ticket: 'Canal inválido.',
+  assunto_obrigatorio: 'Informe um assunto (mínimo 3 caracteres).',
+  prioridade_invalida: 'Prioridade inválida.',
+  tipo_invalido: 'Tipo de ticket inválido.',
+  cliente_nao_encontrado: 'Cliente não encontrado.',
+  telefone_invalido: 'Telefone inválido.',
+  whatsapp_obrigatorio: 'Informe o WhatsApp do cliente.',
+  email_obrigatorio: 'Informe o e-mail do cliente.',
+  cliente_obrigatorio: 'Informe dados do cliente.',
+  contato_de_outro_cliente: 'Este contato pertence a outro cliente.',
+  ja_existe_ticket_aberto: 'Já existe um ticket aberto para este cliente.',
+  status_invalido: 'Status inválido.',
 };
 
 export function mensagemErro(e: unknown): string {
   const raw = typeof e === 'string' ? e : (e as { message?: string })?.message ?? '';
+  if (raw.includes('ja_existe_ticket_aberto')) {
+    const m = raw.match(/SAC-\d{4}-\d+/);
+    return m ? `Já existe ticket aberto: ${m[0]}` : ERROS.ja_existe_ticket_aberto;
+  }
   for (const k of Object.keys(ERROS)) if (raw.startsWith(k) || raw.includes(k)) return ERROS[k];
   return raw ? `Erro: ${raw}` : 'Erro inesperado.';
+}
+
+export function protocoloDeErro(e: unknown): string | null {
+  const raw = typeof e === 'string' ? e : (e as { message?: string })?.message ?? '';
+  const m = raw.match(/SAC-\d{4}-\d+/);
+  return m ? m[0] : null;
 }
 
 async function rpc<T>(nome: string, params?: Record<string, unknown>): Promise<T> {
@@ -48,7 +95,26 @@ export const api = {
       p_limite: p.limite ?? 100,
       p_offset: 0,
     }),
+  listarTickets: (filtros: FiltrosTicket, ordem?: string, limite = 50, offset = 0) =>
+    rpc<TicketLinha[]>('sac_listar_tickets', {
+      p_filtros: filtros,
+      p_ordem: ordem ?? 'recentes',
+      p_limite: limite,
+      p_offset: offset,
+    }),
+  listarViews: () => rpc<ViewItem[]>('sac_listar_views'),
+  salvarView: (p: { id?: string | null; nome: string; filtros: FiltrosTicket; ordem?: string; compartilhada?: boolean; posicao?: number }) =>
+    rpc<ViewItem>('sac_salvar_view', {
+      p_id: p.id ?? null,
+      p_nome: p.nome,
+      p_filtros: p.filtros,
+      p_ordem: p.ordem ?? 'recentes',
+      p_compartilhada: p.compartilhada ?? false,
+      p_posicao: p.posicao ?? null,
+    }),
+  excluirView: (id: string) => rpc('sac_excluir_view', { p_id: id }),
   detalhe: (id: string) => rpc<DetalheConversa>('sac_detalhe_conversa', { p_conversa_id: id }),
+  detalheTicket: (id: string) => rpc<TicketCompleto>('sac_detalhe_ticket', { p_ticket_id: id }),
   mensagens: (id: string, antes?: string | null) =>
     rpc<Mensagem[]>('sac_mensagens_conversa', { p_conversa_id: id, p_antes: antes ?? null, p_limite: 100 }),
   atribuir: (ticket: string, atendente: string | null) => rpc('sac_atribuir', { p_ticket_id: ticket, p_atendente_id: atendente }),
@@ -62,9 +128,81 @@ export const api = {
     rpc<Atendente>('sac_admin_salvar_atendente', {
       p_id: a.id, p_nome: a.nome ?? null, p_setores: a.setores ?? null, p_papel: a.papel ?? null, p_ativo: a.ativo ?? null,
     }),
+  listarTipos: (incluirInativos?: boolean) => rpc<TipoTicket[]>('sac_listar_tipos', { p_incluir_inativos: incluirInativos ?? false }),
+  adminSalvarTipo: (p: {
+    id?: string | null; nome: string; setor_padrao: string;
+    sla_primeira_resposta_h: number; sla_resolucao_h: number;
+    descricao?: string; ordem?: number; ativo?: boolean;
+  }) => rpc<TipoTicket>('sac_admin_salvar_tipo', {
+    p_id: p.id ?? null,
+    p_nome: p.nome,
+    p_setor_padrao: p.setor_padrao,
+    p_sla_primeira_resposta_h: p.sla_primeira_resposta_h,
+    p_sla_resolucao_h: p.sla_resolucao_h,
+    p_descricao: p.descricao ?? null,
+    p_ordem: p.ordem ?? 100,
+    p_ativo: p.ativo ?? true,
+  }),
+  definirTipo: (ticketId: string, tipoId: string, transferirSetor?: boolean) =>
+    rpc<TicketCompleto>('sac_definir_tipo', { p_ticket_id: ticketId, p_tipo_id: tipoId, p_transferir_setor: transferirSetor ?? false }),
+  abrirTicket: (p: Record<string, unknown>) => rpc<AbrirTicketResult>('sac_abrir_ticket', p),
+  atualizarTicket: (p: {
+    ticket_id: string; tipo_id?: string | null; prioridade?: string | null; status?: string | null;
+    tags?: string[] | null; assunto?: string | null; limpar_tipo?: boolean;
+  }) => rpc<TicketCompleto>('sac_atualizar_ticket', {
+    p_ticket_id: p.ticket_id,
+    p_tipo_id: p.tipo_id ?? null,
+    p_prioridade: p.prioridade ?? null,
+    p_status: p.status ?? null,
+    p_tags: p.tags ?? null,
+    p_assunto: p.assunto ?? null,
+    p_limpar_tipo: p.limpar_tipo ?? false,
+  }),
+  listarTags: (busca?: string) => rpc<TagItem[]>('sac_listar_tags', { p_busca: busca ?? null }),
+  listarMacros: (p?: { setor?: string; tipo_id?: string; incluir_inativas?: boolean }) =>
+    rpc<MacroTicket[]>('sac_listar_macros', {
+      p_setor: p?.setor ?? null,
+      p_tipo_id: p?.tipo_id ?? null,
+      p_incluir_inativas: p?.incluir_inativas ?? false,
+    }),
+  aplicarMacro: (macroId: string, ticketId: string, aplicarAcoes = true) =>
+    rpc<AplicarMacroResult>('sac_aplicar_macro', {
+      p_macro_id: macroId,
+      p_ticket_id: ticketId,
+      p_aplicar_acoes: aplicarAcoes,
+    }),
+  adminSalvarMacro: (p: {
+    id?: string | null; titulo: string; corpo: string;
+    setor_id?: string | null; tipo_id?: string | null;
+    acoes?: Record<string, unknown> | null; ordem?: number; ativo?: boolean;
+  }) => rpc<MacroTicket>('sac_admin_salvar_macro', {
+    p_id: p.id ?? null,
+    p_titulo: p.titulo,
+    p_corpo: p.corpo,
+    p_setor_id: p.setor_id ?? null,
+    p_tipo_id: p.tipo_id ?? null,
+    p_acoes: p.acoes ?? null,
+    p_ordem: p.ordem ?? 100,
+    p_ativo: p.ativo ?? true,
+  }),
+  historicoTicket: (ticketId: string) => rpc<HistoricoEvento[]>('sac_historico_ticket', { p_ticket_id: ticketId }),
+  vincularTickets: (a: string, b: string) => rpc('sac_vincular_tickets', { p_ticket_id: a, p_outro_ticket_id: b }),
+  desvincularTickets: (a: string, b: string) => rpc('sac_desvincular_tickets', { p_ticket_id: a, p_outro_ticket_id: b }),
+  mesclarTickets: (origem: string, destino: string, motivo?: string) =>
+    rpc('sac_mesclar_tickets', { p_origem_id: origem, p_destino_id: destino, p_motivo: motivo ?? null }),
+  registrarCsat: (ticketId: string, nota: number, comentario?: string) =>
+    rpc('sac_registrar_csat', { p_ticket_id: ticketId, p_nota: nota, p_comentario: comentario ?? null, p_canal: 'manual' }),
+  iaFeedback: (sugestaoId: string, resultado: 'usada' | 'descartada', textoFinal?: string, motivo?: string) =>
+    rpc('sac_ia_feedback', {
+      p_sugestao_id: sugestaoId,
+      p_resultado: resultado,
+      p_texto_final: textoFinal ?? null,
+      p_motivo: motivo ?? null,
+    }),
+  iaHistorico: (ticketId: string, limite = 20) =>
+    rpc<IaSugestaoHist[]>('sac_ia_historico', { p_ticket_id: ticketId, p_limite: limite }),
 };
 
-// Modo teste: true = só confere, não envia ao cliente. Mude para false (VITE_SAC_ENVIO_REAL=true) quando for testar de verdade.
 export const DRY_RUN = import.meta.env.VITE_SAC_ENVIO_REAL !== 'true';
 
 export async function enviar(conversa_id: string, texto: string): Promise<{ ok: boolean; dry_run?: boolean }> {
@@ -82,4 +220,26 @@ export async function enviar(conversa_id: string, texto: string): Promise<{ ok: 
     throw error;
   }
   return data;
+}
+
+export async function ia(
+  acao: 'sugerir_resposta' | 'resumir_ticket' | 'classificar',
+  ticketId: string,
+  instrucao?: string,
+): Promise<IaResposta> {
+  const { data, error } = await supabase.functions.invoke('sac-ia', {
+    body: { acao, ticket_id: ticketId, instrucao: instrucao || undefined },
+  });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const status = error.context.status;
+      if (status === 401) throw new Error('sessao_expirada');
+      if (status === 429) throw new Error('limite');
+      let corpo: { erro?: string; mensagem?: string } = {};
+      try { corpo = await error.context.json(); } catch { /* sem corpo */ }
+      throw new Error(corpo.erro || corpo.mensagem || (status === 502 ? 'ia_indisponivel' : `http_${status}`));
+    }
+    throw error;
+  }
+  return data as IaResposta;
 }

@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { api, DRY_RUN, enviar, mensagemErro } from '../lib/api';
-import type { ConversaItem, DetalheConversa, Mensagem, Perfil, Setor } from '../lib/types';
-import { chaveDia, hora, nomeSetor, restante, separadorDia, STATUS_TICKET, telefone } from '../lib/format';
-import PainelCliente from './PainelCliente';
+import type { ConversaItem, DetalheConversa, Mensagem, Perfil, Setor, TicketCompleto, TicketLinha, TipoTicket } from '../lib/types';
+import { CANAL_ROTULO, chaveDia, hora, nomeSetor, restante, separadorDia, STATUS_TICKET, telefone } from '../lib/format';
+import ColunaDireita from './ColunaDireita';
+import MacrosModal from './MacrosModal';
 import Modal from './Modal';
+import type { CopilotoApi } from './Copiloto';
 
 interface Props {
   conversaId: string;
-  item: ConversaItem | null;
+  item: ConversaItem | TicketLinha | null;
   perfil: Perfil;
   setores: Setor[];
+  tipos: TipoTicket[];
   versao: number;
   onMudou: () => void;
 }
 
 type Acao = null | 'transferir' | 'fechar' | 'reabrir';
 
-export default function Conversa({ conversaId, perfil, setores, versao, onMudou }: Props) {
+export default function Conversa({ conversaId, perfil, setores, tipos, versao, onMudou }: Props) {
   const [det, setDet] = useState<DetalheConversa | null>(null);
   const [msgs, setMsgs] = useState<Mensagem[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -28,15 +31,29 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
   const [enviando, setEnviando] = useState(false);
   const [acao, setAcao] = useState<Acao>(null);
   const [temMais, setTemMais] = useState(false);
+  const [macros, setMacros] = useState(false);
+  const [transfMotivo, setTransfMotivo] = useState('');
+  const [transfSetor, setTransfSetor] = useState('');
   const [, tick] = useState(0);
   const fimRef = useRef<HTMLDivElement>(null);
   const rolarFim = useRef(true);
+  const sugestaoAtiva = useRef<string | null>(null);
+  const copilotoRef = useRef<CopilotoApi>({
+    preencherComposer: () => {},
+    sugestaoAtiva: null,
+  });
+
+  copilotoRef.current.preencherComposer = (t, id) => {
+    setTexto(t);
+    setModoNota(false);
+    sugestaoAtiva.current = id;
+    copilotoRef.current.sugestaoAtiva = id;
+  };
 
   const carregarDetalhe = useCallback(async () => {
     try { setDet(await api.detalhe(conversaId)); } catch (e) { setErro(mensagemErro(e)); }
   }, [conversaId]);
 
-  // carga inicial + marcar lida
   useEffect(() => {
     let vivo = true;
     (async () => {
@@ -57,15 +74,12 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversaId]);
 
-  // ticket/conversa mudou (Realtime da lista) → atualiza cabeçalho e painel
-  useEffect(() => { if (versao > 0) carregarDetalhe(); }, [versao, carregarDetalhe]);
+  useEffect(() => { if (versao > 0) void carregarDetalhe(); }, [versao, carregarDetalhe]);
 
-  // Realtime das mensagens desta conversa
   useEffect(() => {
     const ch = supabase
       .channel(`sac-conversa-${conversaId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'sac', table: 'mensagens', filter: `conversa_id=eq.${conversaId}` }, () => {
-        // recarrega via RPC para ter atendente_nome/protocolo
         api.mensagens(conversaId).then((m) => { rolarFim.current = true; setMsgs(m ?? []); }).catch(() => {});
         api.marcarLida(conversaId).catch(() => {});
       })
@@ -77,12 +91,18 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
     return () => { supabase.removeChannel(ch); };
   }, [conversaId]);
 
-  // contagem regressiva da janela
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 30000); return () => clearInterval(t); }, []);
 
   useEffect(() => {
     if (rolarFim.current) { fimRef.current?.scrollIntoView({ block: 'end' }); rolarFim.current = false; }
   }, [msgs]);
+
+  useEffect(() => {
+    if (!texto.trim()) {
+      sugestaoAtiva.current = null;
+      copilotoRef.current.sugestaoAtiva = null;
+    }
+  }, [texto]);
 
   async function carregarAnteriores() {
     if (!msgs.length) return;
@@ -97,20 +117,25 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
     catch (e) { setErro(mensagemErro(e)); return false; }
   }
 
-  const ticket = det?.ticket_atual ?? null;
+  const ticket = det?.ticket_atual as TicketCompleto | null;
   const fechado = ticket?.status === 'fechado';
-  const janelaAberta = Boolean(det?.janela_aberta) && (!det?.janela_expira_em || new Date(det.janela_expira_em).getTime() > Date.now());
+  const mesclado = Boolean(ticket?.mesclado_em);
+  const canal = det?.conversa.canal_origem ?? 'whatsapp';
+  const ehWa = canal === 'whatsapp';
+  const janelaAberta = ehWa && Boolean(det?.janela_aberta) && (!det?.janela_expira_em || new Date(det.janela_expira_em).getTime() > Date.now());
   const meu = ticket?.atribuido_a === perfil.id;
   const lider = perfil.papel === 'admin' || perfil.papel === 'supervisor';
   const contatoWa = det?.contatos.find((c) => c.tipo === 'whatsapp');
   const nome = det?.cliente?.razao_social || det?.cliente?.nome_fantasia || contatoWa?.nome_perfil || telefone(contatoWa?.valor) || 'Cliente';
+  const podeReabrir = fechado || ticket?.status === 'resolvido';
 
   async function enviarResposta() {
     const t = texto.trim();
     if (!t) return;
     setEnviando(true); setErro(''); setAviso('');
+    const sug = sugestaoAtiva.current;
     try {
-      if (modoNota) {
+      if (modoNota || !ehWa) {
         await api.nota(conversaId, t);
         setTexto('');
         const m = await api.mensagens(conversaId); rolarFim.current = true; setMsgs(m ?? []);
@@ -119,6 +144,9 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
         if (r.dry_run) setAviso('Modo teste: checagem OK, nada foi enviado ao cliente.');
         else setTexto('');
         if (!r.dry_run) { const m = await api.mensagens(conversaId); rolarFim.current = true; setMsgs(m ?? []); }
+        if (sug) void api.iaFeedback(sug, 'usada', t).catch(() => {});
+        sugestaoAtiva.current = null;
+        copilotoRef.current.sugestaoAtiva = null;
       }
     } catch (e) {
       setErro(mensagemErro(e));
@@ -127,6 +155,17 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
     } finally {
       setEnviando(false);
     }
+  }
+
+  async function aplicarClassificacao(tipoId: string | null, prioridade: string | null, setor: string | null) {
+    if (!ticket) return;
+    try {
+      if (prioridade) await api.atualizarTicket({ ticket_id: ticket.id, prioridade });
+      if (tipoId) await api.definirTipo(ticket.id, tipoId, false);
+      if (setor && setor !== ticket.setor_id) await api.transferir(ticket.id, setor, 'Sugestão do Copiloto');
+      await carregarDetalhe();
+      onMudou();
+    } catch (e) { setErro(mensagemErro(e)); }
   }
 
   if (carregando) return <section className="conversa"><p className="muted pad">Carregando conversa…</p></section>;
@@ -142,8 +181,9 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
             <div>
               <h2>{nome}</h2>
               <div className="conv-sub">
-                <span className="tag verde">WhatsApp</span>
-                <span>{telefone(contatoWa?.valor)}</span>
+                <span className="tag verde">{CANAL_ROTULO[canal] ?? canal}</span>
+                {ehWa && <span>{telefone(contatoWa?.valor)}</span>}
+                {ticket?.assunto && <span className="muted trunc"> · {ticket.assunto}</span>}
               </div>
             </div>
             <div className="conv-protocolo">
@@ -157,25 +197,25 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
               <span className="atrib">
                 Atribuída a: <b>{ticket.atribuido_nome || 'ninguém'}</b> ({nomeSetor(ticket.setor_id)})
               </span>
-              {!fechado && !ticket.atribuido_a && (
-                <button className="btn sm" onClick={() => executar(() => api.atribuir(ticket.id, perfil.id), 'Conversa assumida.')}>Assumir</button>
+              {!fechado && !mesclado && !ticket.atribuido_a && (
+                <button type="button" className="btn sm" onClick={() => void executar(() => api.atribuir(ticket.id, perfil.id), 'Conversa assumida.')}>Assumir</button>
               )}
-              {!fechado && ticket.atribuido_a && !meu && lider && (
-                <button className="btn sm" onClick={() => executar(() => api.atribuir(ticket.id, perfil.id), 'Conversa assumida.')}>Assumir</button>
+              {!fechado && !mesclado && ticket.atribuido_a && !meu && lider && (
+                <button type="button" className="btn sm" onClick={() => void executar(() => api.atribuir(ticket.id, perfil.id), 'Conversa assumida.')}>Assumir</button>
               )}
-              {!fechado && ticket.atribuido_a && (meu || lider) && (
-                <button className="btn sm ghost" onClick={() => executar(() => api.atribuir(ticket.id, null), 'Conversa liberada.')}>Soltar</button>
+              {!fechado && !mesclado && ticket.atribuido_a && (meu || lider) && (
+                <button type="button" className="btn sm ghost" onClick={() => void executar(() => api.atribuir(ticket.id, null), 'Conversa liberada.')}>Soltar</button>
               )}
-              {!fechado && <button className="btn sm laranja" onClick={() => setAcao('transferir')}>Transferir setor</button>}
-              {!fechado && <button className="btn sm escuro" onClick={() => setAcao('fechar')}>Fechar</button>}
-              {fechado && <button className="btn sm primario" onClick={() => setAcao('reabrir')}>Reabrir</button>}
+              {!fechado && !mesclado && <button type="button" className="btn sm laranja" onClick={() => setAcao('transferir')}>Transferir setor</button>}
+              {!fechado && !mesclado && <button type="button" className="btn sm escuro" onClick={() => setAcao('fechar')}>Fechar</button>}
+              {podeReabrir && !mesclado && <button type="button" className="btn sm primario" onClick={() => setAcao('reabrir')}>Reabrir</button>}
             </div>
           )}
-          <div className="faixa-info">Todos os atendentes respondem pelo mesmo número +55 11 97246-5529 · Sac ShinyToys</div>
+          {ehWa && <div className="faixa-info">Todos os atendentes respondem pelo mesmo número +55 11 97246-5529 · Sac ShinyToys</div>}
         </header>
 
         <div className="fio">
-          {temMais && <button className="btn sm ghost centro-x" onClick={carregarAnteriores}>Carregar mensagens anteriores</button>}
+          {temMais && <button type="button" className="btn sm ghost centro-x" onClick={() => void carregarAnteriores()}>Carregar mensagens anteriores</button>}
           {msgs.length === 0 && <p className="muted pad">Nenhuma mensagem ainda.</p>}
           {msgs.map((m) => {
             const d = chaveDia(m.enviado_em);
@@ -191,6 +231,7 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
                 </div>
               )];
             const saida = m.direcao === 'saida';
+            const rotuloCanal = ehWa ? 'WhatsApp' : CANAL_ROTULO[canal] ?? canal;
             return [sep, (
               <div key={m.id} className={`msg ${saida ? 'saida' : 'entrada'}`}>
                 <div className="bolha quebra">
@@ -198,10 +239,10 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
                   {m.corpo_texto}
                 </div>
                 <div className="meta">
-                  <span className={saida ? 'tag escuro-claro' : 'tag verde'}>{saida ? 'Saiu por WhatsApp' : 'Entrou por WhatsApp'}</span>
+                  <span className={saida ? 'tag escuro-claro' : 'tag verde'}>{saida ? `Saiu por ${rotuloCanal}` : `Entrou por ${rotuloCanal}`}</span>
                   {saida && (m.atendente_nome || m.enviado_por) && <span>{m.atendente_nome || m.enviado_por}</span>}
                   <span>{hora(m.enviado_em)}</span>
-                  {saida && <StatusEnvio s={m.status} />}
+                  {saida && ehWa && <StatusEnvio s={m.status} />}
                 </div>
               </div>
             )];
@@ -215,52 +256,55 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
           {fechado ? (
             <div className="bloqueio">
               <span>Ticket fechado{ticket?.solucao ? ` · Solução: ${ticket.solucao}` : ''}.</span>
-              <button className="btn sm primario" onClick={() => setAcao('reabrir')}>Reabrir</button>
+              {!mesclado && <button type="button" className="btn sm primario" onClick={() => setAcao('reabrir')}>Reabrir</button>}
             </div>
           ) : (
             <>
-              <div className="compositor-topo">
-                <div className="seg">
-                  <button className={!modoNota ? 'ativo' : ''} onClick={() => setModoNota(false)}>Responder via WhatsApp</button>
-                  <button className={modoNota ? 'ativo nota-on' : ''} onClick={() => setModoNota(true)}>Nota interna</button>
-                </div>
-                {!modoNota && (janelaAberta ? (
-                  <span className="janela ok-j">Janela de 24h: faltam {restante(det.janela_expira_em)}</span>
-                ) : (
-                  <span className="janela fora">Fora da janela de 24h · precisa template</span>
-                ))}
-              </div>
-              {!modoNota && !janelaAberta ? (
-                <div className="bloqueio">
-                  <span>O cliente não escreve há mais de 24h. O WhatsApp só permite responder com <b>mensagem de template</b>, que ainda não está disponível nesta versão.</span>
-                </div>
-              ) : (
-                <div className={`caixa ${modoNota ? 'caixa-nota' : ''}`}>
-                  <textarea
-                    placeholder={modoNota ? 'Nota interna (não vai para o cliente)…' : 'Escreva a resposta… ela sai pelo número compartilhado Sac ShinyToys'}
-                    value={texto}
-                    maxLength={4096}
-                    onChange={(e) => setTexto(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) enviarResposta(); }}
-                  />
-                  <div className="caixa-rodape">
-                    <small className="muted">{modoNota ? 'Visível só para a equipe.' : DRY_RUN ? 'Modo teste: nada é enviado ao cliente.' : 'Ctrl+Enter para enviar.'}</small>
-                    <button className={`btn ${modoNota ? 'amarelo' : 'verde'}`} disabled={enviando || !texto.trim()} onClick={enviarResposta}>
-                      {enviando ? 'Enviando…' : modoNota ? 'Salvar nota' : DRY_RUN ? 'Testar envio' : 'Enviar'}
-                    </button>
-                  </div>
-                </div>
-              )}
+              <CompositorCorpo
+                ehWa={ehWa}
+                modoNota={modoNota}
+                setModoNota={setModoNota}
+                janelaAberta={janelaAberta}
+                det={det}
+                ticket={ticket}
+                macros={macros}
+                setMacros={setMacros}
+                texto={texto}
+                setTexto={setTexto}
+                enviando={enviando}
+                enviarResposta={enviarResposta}
+              />
             </>
           )}
         </footer>
       </section>
 
-      <PainelCliente det={det} nome={nome} />
+      <ColunaDireita
+        det={det}
+        nome={nome}
+        tipos={tipos}
+        setores={setores}
+        perfil={perfil}
+        onTicketAtualizado={carregarDetalhe}
+        onTransferir={(s, m) => { setTransfMotivo(m); setTransfSetor(s); setAcao('transferir'); }}
+        onAplicarClassificacao={(ti, pr, se) => void aplicarClassificacao(ti, pr, se)}
+        onNotaInterna={async (t) => { await api.nota(conversaId, t); const m = await api.mensagens(conversaId); setMsgs(m ?? []); }}
+        copilotoRef={copilotoRef}
+      />
+
+      {macros && ticket && (
+        <MacrosModal
+          ticket={ticket}
+          onFechar={() => setMacros(false)}
+          onAplicar={(t, avisoAcoes) => { setTexto(t); if (avisoAcoes) setAviso(avisoAcoes); void carregarDetalhe(); }}
+        />
+      )}
 
       {acao === 'transferir' && ticket && (
         <ModalTransferir
           setores={setores.filter((s) => s.id !== ticket.setor_id)}
+          setorInicial={transfSetor}
+          motivoInicial={transfMotivo}
           onCancelar={() => setAcao(null)}
           onConfirmar={async (setor, motivo) => { if (await executar(() => api.transferir(ticket.id, setor, motivo), `Transferida para ${nomeSetor(setor)}.`)) setAcao(null); }}
         />
@@ -289,6 +333,74 @@ export default function Conversa({ conversaId, perfil, setores, versao, onMudou 
   );
 }
 
+function CompositorCorpo({
+  ehWa, modoNota, setModoNota, janelaAberta, det, ticket, macros, setMacros, texto, setTexto, enviando, enviarResposta,
+}: {
+  ehWa: boolean;
+  modoNota: boolean;
+  setModoNota: (v: boolean) => void;
+  janelaAberta: boolean;
+  det: DetalheConversa;
+  ticket: TicketCompleto | null;
+  macros: boolean;
+  setMacros: (v: boolean) => void;
+  texto: string;
+  setTexto: (v: string) => void;
+  enviando: boolean;
+  enviarResposta: () => void;
+}) {
+  if (!ehWa) {
+    return (
+      <div className="caixa caixa-nota">
+        <p className="pequeno muted">Canal sem resposta ao cliente — use notas internas.</p>
+        <textarea placeholder="Nota interna…" value={texto} maxLength={4096} onChange={(e) => setTexto(e.target.value)} />
+        <div className="caixa-rodape">
+          <button type="button" className="btn amarelo" disabled={enviando || !texto.trim()} onClick={enviarResposta}>Salvar nota</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="compositor-topo">
+        <div className="seg">
+          <button type="button" className={!modoNota ? 'ativo' : ''} onClick={() => setModoNota(false)}>Responder via WhatsApp</button>
+          <button type="button" className={modoNota ? 'ativo nota-on' : ''} onClick={() => setModoNota(true)}>Nota interna</button>
+        </div>
+        {ticket && (
+          <button type="button" className="btn sm ghost" onClick={() => setMacros(!macros)}>Respostas prontas</button>
+        )}
+        {!modoNota && (janelaAberta ? (
+          <span className="janela ok-j">Janela de 24h: faltam {restante(det.janela_expira_em)}</span>
+        ) : (
+          <span className="janela fora">Fora da janela de 24h · precisa template</span>
+        ))}
+      </div>
+      {!modoNota && !janelaAberta ? (
+        <div className="bloqueio">
+          <span>O cliente não escreve há mais de 24h. O WhatsApp só permite responder com <b>mensagem de template</b>, que ainda não está disponível nesta versão.</span>
+        </div>
+      ) : (
+        <div className={`caixa ${modoNota ? 'caixa-nota' : ''}`}>
+          <textarea
+            placeholder={modoNota ? 'Nota interna (não vai para o cliente)…' : 'Escreva a resposta… ela sai pelo número compartilhado Sac ShinyToys'}
+            value={texto}
+            maxLength={4096}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) enviarResposta(); }}
+          />
+          <div className="caixa-rodape">
+            <small className="muted">{modoNota ? 'Visível só para a equipe.' : DRY_RUN ? 'Modo teste: nada é enviado ao cliente.' : 'Ctrl+Enter para enviar.'}</small>
+            <button type="button" className={`btn ${modoNota ? 'amarelo' : 'verde'}`} disabled={enviando || !texto.trim()} onClick={enviarResposta}>
+              {enviando ? 'Enviando…' : modoNota ? 'Salvar nota' : DRY_RUN ? 'Testar envio' : 'Enviar'}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function StatusEnvio({ s }: { s: string | null }) {
   if (s === 'failed') return <span className="st falhou">✕ falhou</span>;
   if (s === 'read') return <span className="st lida" title="Lida">✓✓ lida</span>;
@@ -297,9 +409,9 @@ function StatusEnvio({ s }: { s: string | null }) {
   return <span className="st" title="Enviando">⏱</span>;
 }
 
-function ModalTransferir({ setores, onCancelar, onConfirmar }: { setores: Setor[]; onCancelar: () => void; onConfirmar: (s: string, m: string) => void }) {
-  const [setor, setSetor] = useState(setores[0]?.id ?? '');
-  const [motivo, setMotivo] = useState('');
+function ModalTransferir({ setores, setorInicial, motivoInicial, onCancelar, onConfirmar }: { setores: Setor[]; setorInicial?: string; motivoInicial?: string; onCancelar: () => void; onConfirmar: (s: string, m: string) => void }) {
+  const [setor, setSetor] = useState((setorInicial || setores[0]?.id) ?? '');
+  const [motivo, setMotivo] = useState(motivoInicial ?? '');
   return (
     <Modal titulo="Transferir setor" onFechar={onCancelar}>
       <label>Para o setor
@@ -312,8 +424,8 @@ function ModalTransferir({ setores, onCancelar, onConfirmar }: { setores: Setor[
       </label>
       <p className="muted pequeno">O ticket fica sem dono e volta para "Aberto" no setor escolhido.</p>
       <div className="linha-botoes">
-        <button className="btn ghost" onClick={onCancelar}>Cancelar</button>
-        <button className="btn primario" disabled={!setor} onClick={() => onConfirmar(setor, motivo)}>Transferir</button>
+        <button type="button" className="btn ghost" onClick={onCancelar}>Cancelar</button>
+        <button type="button" className="btn primario" disabled={!setor} onClick={() => onConfirmar(setor, motivo)}>Transferir</button>
       </div>
     </Modal>
   );
@@ -327,8 +439,8 @@ function ModalTexto({ titulo, rotulo, minimo, botao, onCancelar, onConfirmar }: 
         <textarea autoFocus value={t} onChange={(e) => setT(e.target.value)} />
       </label>
       <div className="linha-botoes">
-        <button className="btn ghost" onClick={onCancelar}>Cancelar</button>
-        <button className="btn primario" disabled={t.trim().length < minimo} onClick={() => onConfirmar(t.trim())}>{botao}</button>
+        <button type="button" className="btn ghost" onClick={onCancelar}>Cancelar</button>
+        <button type="button" className="btn primario" disabled={t.trim().length < minimo} onClick={() => onConfirmar(t.trim())}>{botao}</button>
       </div>
     </Modal>
   );

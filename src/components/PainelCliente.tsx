@@ -1,10 +1,11 @@
 import type { DetalheConversa } from '../lib/types';
 import { dataHora, iniciais, nomeSetor, STATUS_TICKET, telefone } from '../lib/format';
 
-export default function PainelCliente({ det, nome }: { det: DetalheConversa; nome: string }) {
+export default function PainelCliente({ det, nome, embutido }: { det: DetalheConversa; nome: string; embutido?: boolean }) {
   const c = det.cliente;
+  const Tag = embutido ? 'div' : 'aside';
   return (
-    <aside className="painel">
+    <Tag className={embutido ? 'painel-emb' : 'painel'}>
       <section>
         <div className="rotulo-sec">CLIENTE</div>
         <div className="cli-cab">
@@ -65,7 +66,7 @@ export default function PainelCliente({ det, nome }: { det: DetalheConversa; nom
         <h4>Nota fiscal e itens</h4>
         <p className="muted pequeno">Em breve (fase 3) · Fonte: ERP (erp.nf_itens)</p>
       </section>
-    </aside>
+    </Tag>
   );
 }
 
