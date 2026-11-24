@@ -1,6 +1,8 @@
 # Shiny Toys · Inbox SAC (fase 1)
 
 Painel de atendimento do WhatsApp do SAC (+55 11 97246-5529). Front em React + Vite + TypeScript.
+
+No ar: https://sacshinyt.netlify.app
 O backend (tabelas, RPCs, Realtime, webhook e envio) já está no Supabase **DADOSAI**. Contrato: [`docs/BACKEND.md`](docs/BACKEND.md).
 
 ## Rodar no computador
