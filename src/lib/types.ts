@@ -232,8 +232,8 @@ export interface TagItem {
 export interface HistoricoEvento {
   id: string;
   evento: string;
-  de: string | null;
-  para: string | null;
+  de: unknown;
+  para: unknown;
   autor_id: string | null;
   autor_nome: string | null;
   criado_em: string;

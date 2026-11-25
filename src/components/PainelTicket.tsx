@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, mensagemErro } from '../lib/api';
 import type { Perfil, Setor, TicketCompleto, TipoTicket } from '../lib/types';
 import {
-  corSla, dataHora, EVENTO_HIST, nomeSetor, PRIORIDADE_ROTULO, restante, STATUS_EDITAVEIS, STATUS_TICKET,
+  corSla, dataHora, nomeSetor, PRIORIDADE_ROTULO, restante, STATUS_EDITAVEIS, STATUS_TICKET,
 } from '../lib/format';
 import Modal from './Modal';
+import DetalhesTicket from './DetalhesTicket';
+import LinhaTempo from './LinhaTempo';
 
 interface Props {
   ticket: TicketCompleto;
@@ -29,7 +31,7 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
 
   useEffect(() => { setLocal(ticket); setAssunto(ticket.assunto ?? ''); }, [ticket]);
 
-  const fechado = local.status === 'fechado';
+  const fechado = local.status === 'fechado' || local.status === 'cancelado';
   const mesclado = Boolean(local.mesclado_em);
   const bloqueado = fechado || mesclado;
 
@@ -96,8 +98,9 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
           onChange={(e) => void patch({ ticket_id: local.id, status: e.target.value })}
         >
           {STATUS_EDITAVEIS.map((s) => <option key={s} value={s}>{STATUS_TICKET[s]}</option>)}
-          {fechado && <option value="fechado">Fechado</option>}
-          {local.status === 'novo' && <option value="novo">Novo</option>}
+          {local.status === 'fechado' && <option value="fechado">Fechada</option>}
+          {local.status === 'cancelado' && <option value="cancelado">Cancelada</option>}
+          {local.status === 'novo' && <option value="novo">Nova</option>}
         </select>
       </div>
       <div className="campo-linha">
@@ -114,7 +117,8 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
         <span className="lbl">Tipo</span>
         <select disabled={bloqueado} value={local.tipo_id ?? ''} onChange={(e) => void mudarTipo(e.target.value)}>
           <option value="">— nenhum —</option>
-          {tipos.filter((t) => t.ativo).map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+          {tipos.filter((t) => t.ativo && (!t.publico || t.publico === 'ambos' || !local.publico || t.publico === local.publico))
+            .map((t) => <option key={t.id} value={t.id}>{t.codigo ? `${t.codigo} · ` : ''}{t.nome}</option>)}
         </select>
       </div>
       <div className="campo-linha col">
@@ -145,6 +149,7 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
           />
         )}
       </div>
+      <DetalhesTicket ticket={local} bloqueado={bloqueado} onSalvo={(t) => { setLocal(t); onAtualizado(); }} />
       <div className={`sla-bloco sla-${cor}`}>
         <strong>SLA</strong>
         {cor === 'cinza' ? (
@@ -210,19 +215,10 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
           </div>
         </div>
       )}
-      <button type="button" className="btn sm ghost largo" onClick={() => void abrirHist()}>Histórico</button>
+      <button type="button" className="btn sm ghost largo" onClick={() => void abrirHist()}>Linha do tempo</button>
       {histAberto && (
-        <Modal titulo="Histórico do ticket" onFechar={() => setHistAberto(false)}>
-          <div className="lista-hist">
-            {historico.map((h) => (
-              <div key={h.id} className="hist-ev">
-                <strong>{EVENTO_HIST[h.evento] ?? h.evento}</strong>
-                <span className="pequeno muted">{h.de ?? '—'} → {h.para ?? '—'}</span>
-                <span className="pequeno">{h.autor_nome || 'sistema'} · {dataHora(h.criado_em)}</span>
-              </div>
-            ))}
-            {historico.length === 0 && <p className="muted">Sem eventos.</p>}
-          </div>
+        <Modal titulo={`Linha do tempo · ${local.protocolo}`} onFechar={() => setHistAberto(false)}>
+          <LinhaTempo eventos={historico} />
         </Modal>
       )}
       {modalMesclar && (
