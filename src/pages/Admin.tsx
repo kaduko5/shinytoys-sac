@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AdminCampos, AdminTipos as AdminTiposNovo } from '../components/AdminTiposCampos';
 import { api, mensagemErro } from '../lib/api';
 import type { Atendente, MacroTicket, Papel, Perfil, Setor, TipoTicket } from '../lib/types';
 import { nomeSetor } from '../lib/format';
 
-type Aba = 'atendentes' | 'tipos' | 'macros';
+type Aba = 'atendentes' | 'tipos' | 'campos' | 'macros';
 
 export default function Admin({ perfil, setores }: { perfil: Perfil; setores: Setor[] }) {
   const [aba, setAba] = useState<Aba>('atendentes');
@@ -14,7 +15,8 @@ export default function Admin({ perfil, setores }: { perfil: Perfil; setores: Se
     <main className="admin">
       <AdminAbas aba={aba} setAba={setAba} podeMacros={podeMacros} soAdmin={soAdmin} />
       {aba === 'atendentes' && <AdminAtendentes perfil={perfil} setores={setores} />}
-      {aba === 'tipos' && soAdmin && <AdminTipos setores={setores} />}
+      {aba === 'tipos' && soAdmin && <AdminTiposNovo setores={setores} />}
+      {aba === 'campos' && soAdmin && <AdminCampos />}
       {aba === 'tipos' && !soAdmin && <p className="erro">Só administradores.</p>}
       {aba === 'macros' && podeMacros && <AdminMacros setores={setores} />}
       {aba === 'macros' && !podeMacros && <p className="erro">Só admin ou supervisor.</p>}
@@ -26,7 +28,8 @@ function AdminAbas({ aba, setAba, podeMacros, soAdmin }: { aba: Aba; setAba: (a:
   return (
     <div className="admin-abas">
       <button type="button" className={aba === 'atendentes' ? 'ativo' : ''} onClick={() => setAba('atendentes')}>Atendentes</button>
-      {soAdmin && <button type="button" className={aba === 'tipos' ? 'ativo' : ''} onClick={() => setAba('tipos')}>Tipos de ticket</button>}
+      {soAdmin && <button type="button" className={aba === 'tipos' ? 'ativo' : ''} onClick={() => setAba('tipos')}>Tipos de chamado</button>}
+      {soAdmin && <button type="button" className={aba === 'campos' ? 'ativo' : ''} onClick={() => setAba('campos')}>Configurador de campos</button>}
       {podeMacros && <button type="button" className={aba === 'macros' ? 'ativo' : ''} onClick={() => setAba('macros')}>Macros</button>}
     </div>
   );

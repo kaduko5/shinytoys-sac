@@ -318,3 +318,7 @@ h1, h2, h3, h4 { margin: 0; }
 .lt-dur { font-size: 11px; color: #0d9488; font-weight: 700; }
 .lt-ev { display: flex; flex-direction: column; gap: 1px; }
 .modal { max-height: 90vh; overflow-y: auto; }
+.tr.tr-tipos { grid-template-columns: 50px 2fr 1fr .8fr .9fr 1fr 1.3fr 70px; }
+.tr.tr-campos { grid-template-columns: 1.5fr 1fr 1.5fr; }
+.campo-cfg { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.campo-cfg select { width: 190px; padding: 4px 6px; }
