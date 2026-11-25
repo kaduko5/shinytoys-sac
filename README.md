@@ -19,7 +19,7 @@ npm run dev
 |---|---|
 | `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API Keys → publishable (ou anon) |
-| `VITE_SAC_ENVIO_REAL` | **opcional**. Sem ela (padrão) o app fica em **modo teste**: o envio só faz a checagem (`dry_run`) e nada chega ao cliente. Coloque `true` só quando for liberar o envio real. |
+| `VITE_SAC_ENVIO_REAL` | `true` = envio real ao cliente (ativado em 25/11/2026). Sem ela, o app fica em modo teste (só checagem). |
 
 Nunca coloque service role, token do WhatsApp ou App Secret aqui.
 
