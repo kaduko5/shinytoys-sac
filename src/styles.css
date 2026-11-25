@@ -324,3 +324,4 @@ h1, h2, h3, h4 { margin: 0; }
 .tr.tr-campos { grid-template-columns: 1.5fr 1fr 1.5fr; }
 .campo-cfg { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
 .campo-cfg select { width: 190px; padding: 4px 6px; }
+.bot-setor { display: grid; grid-template-columns: 160px 200px 1fr; gap: 8px; align-items: center; font-size: 13px; }

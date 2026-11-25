@@ -42,6 +42,8 @@ const ERROS: Record<string, string> = {
   graph_api: 'Falha no envio pela Meta (WhatsApp). Tente de novo em instantes.',
   nao_configurado: 'O envio ainda não está configurado no servidor.',
   campos_obrigatorios: 'Faltam campos obrigatórios.',
+  setores_invalidos: 'Escolha de 1 a 10 setores.',
+  modo_invalido: 'Modo inválido.',
   categoria_invalida: 'Categoria inválida.',
   email_invalido: 'E-mail inválido na lista de seguidores.',
   motivo_obrigatorio: 'Informe o motivo (mínimo 3 caracteres).',
@@ -169,6 +171,9 @@ export const api = {
     p_checklist: p.checklist ?? null,
     p_campos: p.campos ?? null,
   }),
+  // ===== Assistente WhatsApp =====
+  botConfig: () => rpc<Record<string, string>>('sac_bot_config'),
+  salvarBot: (cfg: Record<string, string>) => rpc<Record<string, string>>('sac_admin_salvar_bot', { p_config: cfg }),
   // ===== Fase A =====
   listarCampos: (tipoId?: string | null) =>
     rpc<{ padrao: CampoPadrao[]; efetivos: Record<string, CampoEfetivo> }>('sac_listar_campos', { p_tipo_id: tipoId ?? null }),

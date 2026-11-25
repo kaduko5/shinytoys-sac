@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminCampos, AdminTipos as AdminTiposNovo } from '../components/AdminTiposCampos';
+import AdminBot from '../components/AdminBot';
 import { api, mensagemErro } from '../lib/api';
 import type { Atendente, MacroTicket, Papel, Perfil, Setor, TipoTicket } from '../lib/types';
 import { nomeSetor } from '../lib/format';
 
-type Aba = 'atendentes' | 'tipos' | 'campos' | 'macros';
+type Aba = 'atendentes' | 'tipos' | 'campos' | 'bot' | 'macros';
 
 export default function Admin({ perfil, setores }: { perfil: Perfil; setores: Setor[] }) {
   const [aba, setAba] = useState<Aba>('atendentes');
@@ -17,6 +18,7 @@ export default function Admin({ perfil, setores }: { perfil: Perfil; setores: Se
       {aba === 'atendentes' && <AdminAtendentes perfil={perfil} setores={setores} />}
       {aba === 'tipos' && soAdmin && <AdminTiposNovo setores={setores} />}
       {aba === 'campos' && soAdmin && <AdminCampos />}
+      {aba === 'bot' && soAdmin && <AdminBot setores={setores} />}
       {aba === 'tipos' && !soAdmin && <p className="erro">Só administradores.</p>}
       {aba === 'macros' && podeMacros && <AdminMacros setores={setores} />}
       {aba === 'macros' && !podeMacros && <p className="erro">Só admin ou supervisor.</p>}
@@ -30,6 +32,7 @@ function AdminAbas({ aba, setAba, podeMacros, soAdmin }: { aba: Aba; setAba: (a:
       <button type="button" className={aba === 'atendentes' ? 'ativo' : ''} onClick={() => setAba('atendentes')}>Atendentes</button>
       {soAdmin && <button type="button" className={aba === 'tipos' ? 'ativo' : ''} onClick={() => setAba('tipos')}>Tipos de chamado</button>}
       {soAdmin && <button type="button" className={aba === 'campos' ? 'ativo' : ''} onClick={() => setAba('campos')}>Configurador de campos</button>}
+      {soAdmin && <button type="button" className={aba === 'bot' ? 'ativo' : ''} onClick={() => setAba('bot')}>Assistente WhatsApp</button>}
       {podeMacros && <button type="button" className={aba === 'macros' ? 'ativo' : ''} onClick={() => setAba('macros')}>Macros</button>}
     </div>
   );
