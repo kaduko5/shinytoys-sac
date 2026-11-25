@@ -28,6 +28,7 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
   const [modalMesclar, setModalMesclar] = useState(false);
   const [destinoMesclar, setDestinoMesclar] = useState('');
   const [csatNota, setCsatNota] = useState(5);
+  const [nomes, setNomes] = useState<Record<string, string>>({});
 
   useEffect(() => { setLocal(ticket); setAssunto(ticket.assunto ?? ''); }, [ticket]);
 
@@ -81,7 +82,11 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
 
   const abrirHist = useCallback(async () => {
     setHistAberto(true);
-    try { setHistorico(await api.historicoTicket(local.id)); } catch (e) { setErro(mensagemErro(e)); }
+    try {
+      setHistorico(await api.historicoTicket(local.id));
+      const ats = await api.listarAtendentes(null).catch(() => []);
+      setNomes(Object.fromEntries(ats.map((a) => [a.id, a.nome || a.email || ''])));
+    } catch (e) { setErro(mensagemErro(e)); }
   }, [local.id]);
 
   const cor = corSla({ status: local.status, sla_atrasado: local.sla_atrasado, sla_proximo_vencimento: local.sla_proximo_vencimento, aberto_em: local.aberto_em });
@@ -218,7 +223,7 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
       <button type="button" className="btn sm ghost largo" onClick={() => void abrirHist()}>Linha do tempo</button>
       {histAberto && (
         <Modal titulo={`Linha do tempo · ${local.protocolo}`} onFechar={() => setHistAberto(false)}>
-          <LinhaTempo eventos={historico} />
+          <LinhaTempo eventos={historico} nomes={nomes} />
         </Modal>
       )}
       {modalMesclar && (

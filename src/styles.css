@@ -300,7 +300,9 @@ h1, h2, h3, h4 { margin: 0; }
 .riscado { text-decoration: line-through; color: var(--muted); }
 .aviso-falta { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; border-radius: 8px; padding: 6px 8px; font-size: 12px; margin: 0; }
 .itens-tab { display: flex; flex-direction: column; gap: 4px; }
-.item-linha { display: grid; grid-template-columns: 70px 1fr 52px 80px 1fr 70px 18px; gap: 4px; align-items: center; }
+.item-linha { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; align-items: center; border-bottom: 1px dashed var(--borda); padding-bottom: 6px; position: relative; }
+.item-linha input:nth-child(2) { grid-column: span 2; }
+.item-linha .x-tag { position: absolute; top: -6px; right: -6px; }
 .item-linha input, .item-linha select { padding: 4px 6px; font-size: 12px; }
 .linha-botoes.esq { justify-content: flex-start; flex-wrap: wrap; margin-top: 0; }
 .vermelho-txt { color: var(--vermelho); }
