@@ -1,5 +1,5 @@
 // Assistente automático do WhatsApp (roda no whatsapp-webhook, depois de gravar a mensagem do cliente).
-// Fluxo por chamado novo: boas-vindas + setor → tipo de ocorrência → e-mail → mensagem final com protocolo.
+// Fluxo por chamado novo: boas-vindas + setor → tipo de ocorrência → e-mail → CNPJ/CPF → mensagem final com protocolo.
 // Para assim que um atendente responde. Modo: desligado | teste (só números da lista) | ligado.
 import type postgres from "npm:postgres@3.4.5";
 import { GRAPH, tokenWhatsApp } from "./midia.ts";
@@ -84,6 +84,34 @@ async function perguntarEmail(sql: Sql, cfg: Record<string, string>, ctx: Ctx, p
     await enviar(sql, cfg, ctx, texto(base), base);
   }
 }
+function cnpjValido(c: string): boolean {
+  if (!/^\d{14}$/.test(c) || /^(\d)\1+$/.test(c)) return false;
+  const calc = (n: number) => {
+    const pesos = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const soma = pesos.reduce((acc, p, i) => acc + p * Number(c[i]), 0);
+    const r = soma % 11; return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === Number(c[12]) && calc(13) === Number(c[13]);
+}
+function cpfValido(c: string): boolean {
+  if (!/^\d{11}$/.test(c) || /^(\d)\1+$/.test(c)) return false;
+  const dv = (n: number) => { let s = 0; for (let i = 0; i < n; i++) s += Number(c[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+  return dv(9) === Number(c[9]) && dv(10) === Number(c[10]);
+}
+const fmtCnpj = (c: string) => c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+
+async function perguntarCnpj(sql: Sql, cfg: Record<string, string>, ctx: Ctx, prefixo = "") {
+  const [cli] = await sql`select cnpj from sac.clientes where id = ${ctx.cliente_id}::uuid`;
+  const atual = (cli?.cnpj || "").replace(/\D/g, "");
+  const base = (prefixo ? prefixo + "\n\n" : "") + (cfg.bot_pergunta_cnpj || "Qual é o CNPJ da sua loja?");
+  if (atual.length === 14) {
+    const body = `${base}\n\nTemos no cadastro: ${fmtCnpj(atual)}\nSe estiver certo, toque em "Manter". Se não, digite o CNPJ correto.`;
+    await enviar(sql, cfg, ctx, botoes(body, [{ id: "cnpj:manter", title: "Manter" }, { id: "cnpj:consumidor", title: "Sou consumidor" }]), body);
+  } else {
+    await enviar(sql, cfg, ctx, botoes(base, [{ id: "cnpj:consumidor", title: "Sou consumidor" }]), base);
+  }
+}
+
 async function finalizar(sql: Sql, cfg: Record<string, string>, ctx: Ctx) {
   const body = (cfg.bot_final || "Obrigado! Seu protocolo é {protocolo}.").replaceAll("{protocolo}", ctx.protocolo);
   await enviar(sql, cfg, ctx, texto(body), body);
@@ -173,12 +201,13 @@ export async function processarBot(sql: Sql, mensagemId: string, m: any, novoTic
   }
 
   if (ctx.bot_etapa === "email") {
-    if (idResp === "email:manter") { await evento(sql, ctx, "cliente confirmou o e-mail do cadastro"); await finalizar(sql, cfg, ctx); return; }
+    if (idResp === "email:manter") { await evento(sql, ctx, "cliente confirmou o e-mail do cadastro"); await etapa(sql, ctx, "cnpj"); await perguntarCnpj(sql, cfg, ctx); return; }
     const em = txt.match(EMAIL)?.[0]?.toLowerCase();
     if (em) {
       await sql`insert into sac.contatos_cliente (cliente_id, tipo, valor, principal) values (${ctx.cliente_id}::uuid, 'email', ${em}, false) on conflict (tipo, valor) do nothing`;
       await evento(sql, ctx, `cliente informou o e-mail ${em}`);
-      await finalizar(sql, cfg, ctx);
+      await etapa(sql, ctx, "cnpj");
+      await perguntarCnpj(sql, cfg, ctx);
       return;
     }
     if (ctx.bot_tentativas < 1) {
@@ -187,6 +216,40 @@ export async function processarBot(sql: Sql, mensagemId: string, m: any, novoTic
       await enviar(sql, cfg, ctx, texto(b), b);
     } else {
       await evento(sql, ctx, "cliente não informou e-mail");
+      await etapa(sql, ctx, "cnpj");
+      await perguntarCnpj(sql, cfg, ctx);
+    }
+    return;
+  }
+
+  if (ctx.bot_etapa === "cnpj") {
+    if (idResp === "cnpj:manter") { await evento(sql, ctx, "cliente confirmou o CNPJ do cadastro"); await finalizar(sql, cfg, ctx); return; }
+    if (idResp === "cnpj:consumidor") {
+      await sql`update sac.tickets set publico = 'consumidor', updated_at = now() where id = ${ctx.ticket_id}::uuid`;
+      await evento(sql, ctx, "cliente informou que é consumidor final (sem CNPJ)");
+      await finalizar(sql, cfg, ctx);
+      return;
+    }
+    const d = txt.replace(/\D/g, "");
+    if (cnpjValido(d) || cpfValido(d)) {
+      const [{ r }] = await sql`select sac.vincular_por_cnpj(${ctx.cliente_id}::uuid, ${d}) as r`;
+      if (d.length === 11) {
+        await sql`update sac.tickets set publico = 'consumidor', updated_at = now() where id = ${ctx.ticket_id}::uuid`;
+        await evento(sql, ctx, "cliente informou CPF (consumidor final)");
+      } else {
+        await evento(sql, ctx, r?.portal && !r?.ja_vinculado_a_outro
+          ? `cliente informou o CNPJ ${fmtCnpj(d)} · encontrado no portal: ${r.razao}${r.vendedor ? ` (vendedor ${r.vendedor})` : ""}`
+          : r?.ja_vinculado_a_outro ? `cliente informou o CNPJ ${fmtCnpj(d)} · já ligado a outro cadastro do SAC (${r.razao}), conferir`
+          : `cliente informou o CNPJ ${fmtCnpj(d)} · não encontrado na base do portal`);
+      }
+      await finalizar(sql, cfg, ctx);
+      return;
+    }
+    if (ctx.bot_tentativas < 1) {
+      await etapa(sql, ctx, "cnpj", ctx.bot_tentativas + 1);
+      await perguntarCnpj(sql, cfg, ctx, "Esse número não parece um CNPJ válido. Pode conferir e digitar de novo? (14 números)");
+    } else {
+      await evento(sql, ctx, "cliente não informou CNPJ válido");
       await finalizar(sql, cfg, ctx);
     }
   }
