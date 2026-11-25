@@ -3,10 +3,12 @@
 // POST (Meta)  -> grava mensagens recebidas / atualiza status das enviadas
 // POST com header x-sac-internal-token + {"action":"log_outbound"|"set_secret"|"secret_status"|"app_secret_status",...}
 // Assinatura X-Hub-Signature-256 obrigatória quando o App Secret está no Vault (ou env)
+// v6: assistente automático (setor → tipo → e-mail) em _shared/bot.ts
 // v4: mídia recebida (foto, áudio, vídeo, documento) é baixada da Meta em segundo plano para o bucket sac-midia
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "npm:postgres@3.4.5";
 import { baixarMidiaEntrada, TIPOS_MIDIA } from "../_shared/midia.ts";
+import { processarBot } from "../_shared/bot.ts";
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { max: 2, prepare: false, idle_timeout: 20 });
 
@@ -129,6 +131,8 @@ Deno.serve(async (req) => {
 
     const resultados: unknown[] = [];
     const midias: string[] = [];
+    // deno-lint-ignore no-explicit-any
+    const bot: { id: string; m: any; novo: boolean }[] = [];
     for (const entry of body.entry ?? []) {
       for (const change of entry.changes ?? []) {
         if (change.field !== "messages") continue;
@@ -139,6 +143,7 @@ Deno.serve(async (req) => {
           const ts = m.timestamp ? new Date(Number(m.timestamp) * 1000).toISOString() : null;
           const [r] = await sql`select sac.wa_registrar_entrada(${m.from}, ${nomes[m.from] ?? null}, ${m.id}, ${m.type}, ${textoDe(m)}, ${ts}, ${sql.json(m)}) as r`;
           resultados.push(r.r);
+          if (r.r?.mensagem_id) bot.push({ id: r.r.mensagem_id, m, novo: !!r.r.novo_ticket });
           if (TIPOS_MIDIA.includes(m.type) && r.r?.mensagem_id) {
             await sql`update sac.mensagens set midia_status = 'pendente', midia_mime = ${m[m.type]?.mime_type ?? null},
                       midia_nome = ${m[m.type]?.filename ?? null} where id = ${r.r.mensagem_id}::uuid`;
@@ -153,8 +158,12 @@ Deno.serve(async (req) => {
       }
     }
     // baixa as mídias depois de responder à Meta (se falhar, a sac-midia tenta de novo quando o atendente abrir)
-    if (midias.length) {
+    if (midias.length || bot.length) {
       const tarefa = (async () => {
+        for (const b of bot) {
+          try { await processarBot(sql, b.id, b.m, b.novo); }
+          catch (e) { console.error("bot", b.id, (e as Error).message); }
+        }
         for (const id of midias) {
           try { await baixarMidiaEntrada(sql, id); }
           catch (e) { console.error("midia", id, (e as Error).message); }
