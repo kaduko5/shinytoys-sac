@@ -35,7 +35,7 @@ Criar chamado direto do Gmail (depois que os campos estiverem estáveis).
 
 ## Progresso Fase A
 - [x] Backend: migrations `20261125120000..150000` aplicadas no DADOSAI (setor Qualidade, campos, itens, categorias, configurador, protocolo CF, SLA horário comercial, tipos T1–T9/C1–C4, RPCs `sac_salvar_ticket`, `sac_salvar_itens`, `sac_marcar_checklist`, `sac_cancelar_ticket`, `sac_listar_campos`, `sac_admin_salvar_campo`, `sac_listar_categorias`, `sac_buscar_clientes`, `sac_vincular_cliente_portal`, `sac_abrir_ticket` com `p_publico/p_campos/p_portal_chave`).
-- [ ] Front: painel do ticket com campos/checklist/itens/cancelar + linha do tempo com durações
-- [ ] Front: Novo chamado (público, cliente do portal, campos)
-- [ ] Front: Admin — tipos completos + configurador de campos
+- [x] Front: painel do ticket com campos/checklist/itens/cancelar + linha do tempo com durações
+- [x] Front: Novo chamado (público, cliente do portal, campos)
+- [x] Front: Admin — tipos completos + configurador de campos
 - Envio WhatsApp REAL ativado em 25/11 a pedido do Carlos.
