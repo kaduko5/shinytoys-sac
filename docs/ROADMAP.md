@@ -39,3 +39,9 @@ Criar chamado direto do Gmail (depois que os campos estiverem estáveis).
 - [x] Front: Novo chamado (público, cliente do portal, campos)
 - [x] Front: Admin — tipos completos + configurador de campos
 - Envio WhatsApp REAL ativado em 25/11 a pedido do Carlos.
+
+## Progresso Fase B (25/11)
+- [x] Cards: abertas, vencidas, aguardando terceiro, próxima ação hoje, sem prazo/responsável, resolvidas no mês, tempo médio 90d, prejuízo em aberto/ano (`sac_indicadores`). Clique filtra a lista (`card` em `_filtrar_tickets`).
+- [x] Exportar Excel (`sac_exportar_tickets`, até 5.000 linhas, mesmos filtros).
+- [x] Fix: chamado cancelado conta como encerrado (mensagem nova abre chamado novo).
+- [x] Assistente WhatsApp (setor → tipo → e-mail → CNPJ), modo teste com 11918520852.
