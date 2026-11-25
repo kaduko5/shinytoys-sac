@@ -180,6 +180,14 @@ export interface FiltrosTicket {
   aberto_de?: string;
   aberto_ate?: string;
   busca?: string;
+  card?: string;
+  publico?: string;
+  categoria?: string;
+}
+
+export interface Indicadores {
+  abertas: number; vencidas: number; aguardando: number; hoje: number; sem_prazo: number; resolvidas_mes: number;
+  tempo_medio_dias: number | null; prejuizo_aberto: number; prejuizo_ano: number; atualizado_em: string;
 }
 
 export interface ViewItem {

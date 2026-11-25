@@ -5,6 +5,7 @@ import type { FiltrosTicket, Perfil, Setor, TicketLinha, TipoTicket, ViewItem } 
 import Fila from '../components/Fila';
 import Conversa from '../components/Conversa';
 import NovoTicket from '../components/NovoTicket';
+import Cards from '../components/Cards';
 import Modal from '../components/Modal';
 
 export interface FiltrosView {
@@ -35,6 +36,9 @@ export default function Inbox({ perfil, setores, todosSetores }: Props) {
   const [novo, setNovo] = useState(false);
   const [salvarView, setSalvarView] = useState(false);
   const [nomeView, setNomeView] = useState('');
+  const [card, setCard] = useState<string | null>(null);
+  const cardRef = useRef(card);
+  cardRef.current = card;
 
   const filtrosRef = useRef(filtros);
   filtrosRef.current = filtros;
@@ -46,7 +50,8 @@ export default function Inbox({ perfil, setores, todosSetores }: Props) {
   const viewAtual = views.find((v) => v.id === viewAtiva);
 
   const montarFiltros = useCallback((): FiltrosTicket => {
-    const base: FiltrosTicket = { ...(viewAtual?.filtros ?? {}), ...(filtrosRef.current.extra ?? {}) };
+    // com um card selecionado, o card manda (ignora o status da view para não zerar a lista)
+    const base: FiltrosTicket = cardRef.current ? { card: cardRef.current } : { ...(viewAtual?.filtros ?? {}), ...(filtrosRef.current.extra ?? {}) };
     const f = filtrosRef.current;
     if (f.busca.trim()) base.busca = f.busca.trim();
     if (f.canal) base.canal = f.canal;
@@ -83,7 +88,7 @@ export default function Inbox({ perfil, setores, todosSetores }: Props) {
     setCarregando(true);
     const t = setTimeout(recarregar, filtros.busca ? 350 : 0);
     return () => clearTimeout(t);
-  }, [filtros, viewAtiva, offset, recarregar]);
+  }, [filtros, viewAtiva, offset, recarregar, card]);
 
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined;
@@ -120,6 +125,8 @@ export default function Inbox({ perfil, setores, todosSetores }: Props) {
   }
 
   return (
+    <>
+    <Cards card={card} onCard={(c) => { setCard(c); setOffset(0); }} versao={versao} filtros={montarFiltros} />
     <main className="inbox">
       <Fila
         perfil={perfil}
@@ -184,5 +191,6 @@ export default function Inbox({ perfil, setores, todosSetores }: Props) {
         </Modal>
       )}
     </main>
+    </>
   );
 }

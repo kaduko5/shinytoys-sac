@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type {
+  Indicadores,
   CampoEfetivo, CampoPadrao, ClienteBusca, EstadoCampo, ItemTicket,
   AbrirTicketResult,
   AplicarMacroResult,
@@ -171,6 +172,9 @@ export const api = {
     p_checklist: p.checklist ?? null,
     p_campos: p.campos ?? null,
   }),
+  // ===== Fase B =====
+  indicadores: (setor?: string | null) => rpc<Indicadores>('sac_indicadores', { p_setor: setor ?? null }),
+  exportarTickets: (filtros: FiltrosTicket) => rpc<Record<string, unknown>[]>('sac_exportar_tickets', { p_filtros: filtros }),
   // ===== Assistente WhatsApp =====
   botConfig: () => rpc<Record<string, string>>('sac_bot_config'),
   salvarBot: (cfg: Record<string, string>) => rpc<Record<string, string>>('sac_admin_salvar_bot', { p_config: cfg }),

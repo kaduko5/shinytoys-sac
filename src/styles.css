@@ -325,3 +325,16 @@ h1, h2, h3, h4 { margin: 0; }
 .campo-cfg { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
 .campo-cfg select { width: 190px; padding: 4px 6px; }
 .bot-setor { display: grid; grid-template-columns: 160px 200px 1fr; gap: 8px; align-items: center; font-size: 13px; }
+
+/* Fase B: cards de indicadores */
+.cards-faixa { display: flex; gap: 8px; padding: 10px 12px; background: var(--fundo); border-bottom: 1px solid var(--borda); overflow-x: auto; align-items: stretch; flex: none; }
+.card-ind { background: #fff; border: 1px solid var(--borda); border-radius: 12px; padding: 8px 12px; min-width: 118px; text-align: left; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.card-ind b { font-size: 22px; line-height: 1.1; }
+.card-ind b small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.card-ind span { font-size: 11px; font-weight: 600; color: var(--muted); }
+.card-ind.on { border-color: var(--laranja); background: #fff1ec; box-shadow: 0 0 0 1px var(--laranja) inset; }
+.card-ind.vermelho b { color: var(--vermelho); }
+.card-ind.laranja b { color: #c2410c; }
+.card-ind.verde b { color: #15803d; }
+.card-ind.fixo { cursor: default; }
+.cards-acoes { margin-left: auto; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
