@@ -1,0 +1,34 @@
+# Roadmap SAC Shiny Toys (atualizado 25/11/2026)
+
+Decisões do Carlos:
+- **Uma base só (Supabase DADOSAI), duas telas**: SAC (time interno) e aba Tarefas do portal (vendedores acompanham os chamados dos seus clientes).
+- Protocolo: `SAC-AAAA-NNNNNN` (lojista) e `CF-AAAA-NNNNNN` (consumidor final).
+- Prazos em **horário comercial seg–sex 8h–18h**.
+- Novo setor: **Qualidade**.
+- Controle de **produto e quantidade com defeito** por fabricante (para cobrar o fabricante).
+- Envio WhatsApp em **modo teste** até o fim.
+
+## Fase A — Tipos, campos e classificação (próxima)
+1. Tipos T1–T9 (lojista) e C1–C4 (consumidor) com categoria, departamento, prioridade, prazos, próxima ação e checklist (ver `TIPOS-CHAMADO.md`).
+2. **Configurador** (admin): por tipo, escolher quais campos aparecem e quais são obrigatórios na abertura/fechamento.
+   Campos: Título, Departamento, Responsável, Transportadora/Armazém, NF (botão Puxar), Cliente, Pedido, Categoria, Prioridade, Status, Prazo, Vendedor, Seguidores (e-mails), Próxima ação (texto+data), Descrição, Produtos e divergência (colar lista / adicionar itens), Solução e Resolvida em.
+3. Situações: aberta, andamento, aguardando, resolvida, cancelada.
+4. **Itens do chamado** (SKU, produto, qtd, tipo de divergência/defeito, fabricante, valor) → base do relatório de defeitos por fabricante e do "prejuízo em aberto".
+5. Tela **Novo chamado** completa + classificação obrigatória para fechar.
+6. **Cliente amarrado pelo telefone/CNPJ** com a base do portal (`portal_clientes`: 933 clientes, 746 com telefone) → histórico automático.
+7. **Timeline do ticket** com duração de cada etapa (quanto tempo em cada status, quem alterou o quê).
+
+## Fase B — Painel de indicadores (cards)
+Abertas · Vencidas · Aguardando terceiro · Próxima ação hoje · Sem prazo ou responsável · Resolvidas no mês · Tempo médio de solução (90d) · Prejuízo em aberto (mês/ano) · Exportar Excel.
+
+## Fase C — Portal (vendedores)
+Aba Tarefas do portal passa a ler os chamados do Supabase (só os dos clientes do vendedor). Importar as tarefas atuais da planilha.
+
+## Fase D — Chamados por e-mail
+Caixa do SAC → vira chamado no mesmo fio; resposta sai pela caixa do SAC.
+
+## Fase E — Painel do cliente com dados reais
+Pedidos do portal, status/prazo do ERP, NF e itens (hoje "Em breve").
+
+## Fase F — Extensão do Gmail
+Criar chamado direto do Gmail (depois que os campos estiverem estáveis).
