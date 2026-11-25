@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type {
+  CampoEfetivo, CampoPadrao, ClienteBusca, EstadoCampo, ItemTicket,
   AbrirTicketResult,
   AplicarMacroResult,
   Atendente,
@@ -40,6 +41,11 @@ const ERROS: Record<string, string> = {
   canal_invalido: 'Canal inválido para envio.',
   graph_api: 'Falha no envio pela Meta (WhatsApp). Tente de novo em instantes.',
   nao_configurado: 'O envio ainda não está configurado no servidor.',
+  campos_obrigatorios: 'Faltam campos obrigatórios.',
+  categoria_invalida: 'Categoria inválida.',
+  email_invalido: 'E-mail inválido na lista de seguidores.',
+  motivo_obrigatorio: 'Informe o motivo (mínimo 3 caracteres).',
+  campo_fixo: 'Este campo não pode ser ocultado.',
   tipo_nao_suportado: 'Tipo de arquivo não aceito pelo WhatsApp. Use foto (JPG/PNG), PDF, Excel, Word, áudio ou vídeo MP4.',
   arquivo_grande: 'Arquivo grande demais (foto até 5 MB; demais até 16 MB).',
   arquivo_obrigatorio: 'Escolha um arquivo.',
@@ -69,8 +75,12 @@ const ERROS: Record<string, string> = {
 
 export function mensagemErro(e: unknown): string {
   const raw = typeof e === 'string' ? e : (e as { message?: string })?.message ?? '';
+  if (raw.includes('campos_obrigatorios')) {
+    const det = raw.split('preencha')[1]?.trim();
+    return det ? `Preencha antes de continuar: ${det}` : ERROS.campos_obrigatorios;
+  }
   if (raw.includes('ja_existe_ticket_aberto')) {
-    const m = raw.match(/SAC-\d{4}-\d+/);
+    const m = raw.match(/(SAC|CF)-\d{4}-\d+/);
     return m ? `Já existe ticket aberto: ${m[0]}` : ERROS.ja_existe_ticket_aberto;
   }
   for (const k of Object.keys(ERROS)) if (raw.startsWith(k) || raw.includes(k)) return ERROS[k];
@@ -140,6 +150,8 @@ export const api = {
     id?: string | null; nome: string; setor_padrao: string;
     sla_primeira_resposta_h: number; sla_resolucao_h: number;
     descricao?: string; ordem?: number; ativo?: boolean;
+    codigo?: string | null; publico?: string | null; categoria?: string | null; prioridade_padrao?: string | null;
+    proxima_acao?: string | null; checklist?: string[] | null; campos?: Record<string, EstadoCampo> | null;
   }) => rpc<TipoTicket>('sac_admin_salvar_tipo', {
     p_id: p.id ?? null,
     p_nome: p.nome,
@@ -149,7 +161,35 @@ export const api = {
     p_descricao: p.descricao ?? null,
     p_ordem: p.ordem ?? 100,
     p_ativo: p.ativo ?? true,
+    p_codigo: p.codigo ?? null,
+    p_publico: p.publico ?? null,
+    p_categoria: p.categoria ?? null,
+    p_prioridade_padrao: p.prioridade_padrao ?? null,
+    p_proxima_acao: p.proxima_acao ?? null,
+    p_checklist: p.checklist ?? null,
+    p_campos: p.campos ?? null,
   }),
+  // ===== Fase A =====
+  listarCampos: (tipoId?: string | null) =>
+    rpc<{ padrao: CampoPadrao[]; efetivos: Record<string, CampoEfetivo> }>('sac_listar_campos', { p_tipo_id: tipoId ?? null }),
+  salvarCampo: (c: { chave: string; rotulo?: string; ordem?: number; estado_padrao?: EstadoCampo; so_ao_fechar?: boolean }) =>
+    rpc<CampoPadrao>('sac_admin_salvar_campo', {
+      p_chave: c.chave, p_rotulo: c.rotulo ?? null, p_ordem: c.ordem ?? null, p_estado_padrao: c.estado_padrao ?? null, p_so_ao_fechar: c.so_ao_fechar ?? null,
+    }),
+  listarCategorias: () => rpc<string[]>('sac_listar_categorias'),
+  salvarCategoria: (nome: string, ordem?: number, ativo = true) =>
+    rpc('sac_admin_salvar_categoria', { p_nome: nome, p_ordem: ordem ?? null, p_ativo: ativo }),
+  salvarTicket: (ticketId: string, dados: Record<string, unknown>) =>
+    rpc<TicketCompleto>('sac_salvar_ticket', { p_ticket_id: ticketId, p_dados: dados }),
+  salvarItens: (ticketId: string, itens: ItemTicket[]) =>
+    rpc<TicketCompleto>('sac_salvar_itens', { p_ticket_id: ticketId, p_itens: itens }),
+  marcarChecklist: (ticketId: string, indice: number, feito: boolean) =>
+    rpc<TicketCompleto>('sac_marcar_checklist', { p_ticket_id: ticketId, p_indice: indice, p_feito: feito }),
+  cancelarTicket: (ticketId: string, motivo: string) =>
+    rpc<{ ok: boolean; protocolo: string }>('sac_cancelar_ticket', { p_ticket_id: ticketId, p_motivo: motivo }),
+  buscarClientes: (busca: string) => rpc<ClienteBusca[]>('sac_buscar_clientes', { p_busca: busca }),
+  vincularClientePortal: (portalChave: string, clienteId?: string | null) =>
+    rpc<{ ok: boolean; cliente_id: string }>('sac_vincular_cliente_portal', { p_portal_chave: portalChave, p_cliente_id: clienteId ?? null }),
   definirTipo: (ticketId: string, tipoId: string, transferirSetor?: boolean) =>
     rpc<TicketCompleto>('sac_definir_tipo', { p_ticket_id: ticketId, p_tipo_id: tipoId, p_transferir_setor: transferirSetor ?? false }),
   abrirTicket: (p: Record<string, unknown>) => rpc<AbrirTicketResult>('sac_abrir_ticket', p),

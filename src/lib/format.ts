@@ -56,15 +56,34 @@ export const iniciais = (n: string | null | undefined) =>
   (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 
 export const STATUS_TICKET: Record<string, string> = {
-  novo: 'Novo',
-  aberto: 'Aberto',
-  pendente: 'Pendente',
-  em_espera: 'Em espera',
-  resolvido: 'Resolvido',
-  fechado: 'Fechado',
+  novo: 'Nova',
+  aberto: 'Aberta',
+  andamento: 'Em andamento',
+  pendente: 'Aguardando cliente',
+  em_espera: 'Aguardando terceiro',
+  resolvido: 'Resolvida',
+  fechado: 'Fechada',
+  cancelado: 'Cancelada',
 };
 
-export const STATUS_EDITAVEIS = ['aberto', 'pendente', 'em_espera', 'resolvido'] as const;
+export const STATUS_EDITAVEIS = ['aberto', 'andamento', 'pendente', 'em_espera', 'resolvido'] as const;
+
+export const DIVERGENCIA_ROTULO: Record<string, string> = {
+  defeito: 'Defeito', avaria: 'Avaria', falta: 'Falta', sobra: 'Sobra', troca: 'Troca', preco: 'Preço', outro: 'Outro',
+};
+
+export const brl = (n: number | null | undefined) =>
+  (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+/** Duração legível entre duas datas (ex.: "2d 3h", "45min"). */
+export function duracao(inicio: string, fim: string | Date): string {
+  const ms = new Date(fim).getTime() - new Date(inicio).getTime();
+  if (ms < 60000) return 'menos de 1min';
+  const min = Math.floor(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
+  if (d > 0) return `${d}d ${h % 24}h`;
+  if (h > 0) return `${h}h ${String(min % 60).padStart(2, '0')}min`;
+  return `${min}min`;
+}
 
 export const PRIORIDADE_ROTULO: Record<string, string> = {
   baixa: 'Baixa',
@@ -81,7 +100,7 @@ export const CANAL_ROTULO: Record<string, string> = {
 };
 
 export const NOME_SETOR: Record<string, string> = {
-  sac: 'SAC', financeiro: 'Financeiro', comercial: 'Comercial', logistica: 'Logística',
+  sac: 'SAC', financeiro: 'Financeiro', comercial: 'Comercial', logistica: 'Logística', qualidade: 'Qualidade',
 };
 export const nomeSetor = (id: string | null | undefined) => (id ? NOME_SETOR[id] ?? id : '—');
 
@@ -112,4 +131,19 @@ export const EVENTO_HIST: Record<string, string> = {
   tags: 'Tags',
   assunto: 'Assunto',
   mesclado: 'Mesclado',
+  publico: 'Público',
+  categoria: 'Categoria',
+  transportadora: 'Transportadora',
+  nf: 'NF',
+  pedido: 'Pedido',
+  vendedor: 'Vendedor',
+  seguidores: 'Seguidores',
+  proxima_acao: 'Próxima ação',
+  proxima_acao_em: 'Data da próxima ação',
+  prazo: 'Prazo',
+  descricao: 'Descrição',
+  solucao: 'Solução',
+  cliente: 'Cliente',
+  checklist: 'Checklist',
+  itens: 'Itens',
 };

@@ -69,6 +69,52 @@ export interface TicketCompleto {
   sla_resolucao_cumprido?: boolean | null;
   csat?: CsatTicket | null;
   vinculos?: VinculoTicket[];
+  // Fase A
+  tipo_codigo?: string | null;
+  publico?: 'lojista' | 'consumidor';
+  categoria?: string | null;
+  transportadora?: string | null;
+  nf?: string | null;
+  pedido?: string | null;
+  vendedor?: string | null;
+  seguidores?: string[];
+  proxima_acao?: string | null;
+  proxima_acao_em?: string | null;
+  prazo?: string | null;
+  descricao?: string | null;
+  checklist?: ChecklistItem[];
+  itens?: ItemTicket[];
+  prejuizo?: number;
+  campos?: Record<string, CampoEfetivo>;
+  faltando_fechar?: string[];
+  cancelado_motivo?: string | null;
+}
+
+export interface ChecklistItem { item: string; feito: boolean; por?: string; em?: string }
+export type Divergencia = 'defeito' | 'avaria' | 'falta' | 'sobra' | 'troca' | 'preco' | 'outro';
+export interface ItemTicket {
+  id?: string;
+  sku: string | null;
+  produto: string | null;
+  quantidade: number;
+  divergencia: Divergencia;
+  fabricante: string | null;
+  valor_unit: number | null;
+  obs: string | null;
+}
+export type EstadoCampo = 'oculto' | 'opcional' | 'obrigatorio';
+export interface CampoEfetivo { rotulo: string; ordem: number; fixo: boolean; so_ao_fechar: boolean; estado: EstadoCampo }
+export interface CampoPadrao { chave: string; rotulo: string; ordem: number; estado_padrao: EstadoCampo; so_ao_fechar: boolean; fixo: boolean }
+export interface ClienteBusca {
+  origem: 'sac' | 'portal';
+  id: string;
+  nome: string | null;
+  fantasia: string | null;
+  cnpj: string | null;
+  codigo: string | null;
+  vendedor: string | null;
+  telefone: string | null;
+  portal_chave: string | null;
 }
 
 export interface TicketResumo {
@@ -149,6 +195,13 @@ export interface ViewItem {
 
 export interface TipoTicket {
   id: string;
+  codigo?: string | null;
+  publico?: 'lojista' | 'consumidor' | 'ambos';
+  categoria?: string | null;
+  prioridade_padrao?: string;
+  proxima_acao?: string | null;
+  checklist?: string[];
+  campos?: Record<string, EstadoCampo>;
   nome: string;
   descricao: string | null;
   setor_padrao: string;
