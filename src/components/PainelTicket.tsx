@@ -33,6 +33,9 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
   useEffect(() => { setLocal(ticket); setAssunto(ticket.assunto ?? ''); }, [ticket]);
 
   const fechado = local.status === 'fechado' || local.status === 'cancelado';
+  const cp = local.campos ?? {};
+  const ve = (k: string) => (cp[k] ? cp[k].estado !== 'oculto' : true);
+  const rot = (k: string, padrao: string) => `${cp[k]?.rotulo ?? padrao}${cp[k]?.estado === 'obrigatorio' ? ' *' : ''}`;
   const mesclado = Boolean(local.mesclado_em);
   const bloqueado = fechado || mesclado;
 
@@ -95,8 +98,9 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
     <section className="painel-ticket">
       <div className="rotulo-sec">TICKET</div>
       {erro && <p className="erro pequeno">{erro}</p>}
+      {ve('status') && (
       <div className="campo-linha">
-        <span className="lbl">Status</span>
+        <span className="lbl">{rot('status', 'Status')}</span>
         <select
           disabled={bloqueado}
           value={local.status}
@@ -108,8 +112,10 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
           {local.status === 'novo' && <option value="novo">Nova</option>}
         </select>
       </div>
+      )}
+      {ve('prioridade') && (
       <div className="campo-linha">
-        <span className="lbl">Prioridade</span>
+        <span className="lbl">{rot('prioridade', 'Prioridade')}</span>
         <select
           disabled={bloqueado}
           value={local.prioridade}
@@ -118,16 +124,20 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
           {Object.entries(PRIORIDADE_ROTULO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
+      )}
+      {ve('tipo') && (
       <div className="campo-linha">
-        <span className="lbl">Tipo</span>
+        <span className="lbl">{rot('tipo', 'Tipo de chamado')}</span>
         <select disabled={bloqueado} value={local.tipo_id ?? ''} onChange={(e) => void mudarTipo(e.target.value)}>
           <option value="">— nenhum —</option>
           {tipos.filter((t) => t.ativo && (!t.publico || t.publico === 'ambos' || !local.publico || t.publico === local.publico))
             .map((t) => <option key={t.id} value={t.id}>{t.codigo ? `${t.codigo} · ` : ''}{t.nome}</option>)}
         </select>
       </div>
+      )}
+      {ve('assunto') && (
       <div className="campo-linha col">
-        <span className="lbl">Assunto</span>
+        <span className="lbl">{rot('assunto', 'Título')}</span>
         <input
           disabled={bloqueado}
           value={assunto}
@@ -135,8 +145,10 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
           onBlur={() => { if (assunto !== (local.assunto ?? '')) void patch({ ticket_id: local.id, assunto: assunto || null }); }}
         />
       </div>
+      )}
+      {ve('tags') && (
       <div className="campo-linha col">
-        <span className="lbl">Tags</span>
+        <span className="lbl">{rot('tags', 'Tags')}</span>
         <div className="tags-wrap">
           {local.tags.map((t) => (
             <span key={t} className="tag cinza tag-rem">
@@ -154,6 +166,7 @@ export default function PainelTicket({ ticket, tipos, onAtualizado }: Props) { /
           />
         )}
       </div>
+      )}
       <DetalhesTicket ticket={local} bloqueado={bloqueado} onSalvo={(t) => { setLocal(t); onAtualizado(); }} />
       <div className={`sla-bloco sla-${cor}`}>
         <strong>SLA</strong>

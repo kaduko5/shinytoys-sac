@@ -16,7 +16,6 @@ const ITEM_VAZIO: ItemTicket = { sku: '', produto: '', quantidade: 1, divergenci
 /** Campos configuráveis do chamado + checklist + produtos/divergência + cancelar. */
 export default function DetalhesTicket({ ticket, bloqueado, onSalvo }: Props) {
   const [erro, setErro] = useState('');
-  const [cats, setCats] = useState<string[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
   const [itens, setItens] = useState<ItemTicket[]>(ticket.itens ?? []);
   const [itensSujos, setItensSujos] = useState(false);
@@ -25,7 +24,6 @@ export default function DetalhesTicket({ ticket, bloqueado, onSalvo }: Props) {
   const [cancelar, setCancelar] = useState(false);
   const [motivo, setMotivo] = useState('');
 
-  useEffect(() => { api.listarCategorias().then(setCats).catch(() => {}); }, []);
   useEffect(() => {
     setForm({
       categoria: ticket.categoria ?? '', prazo: ticket.prazo ?? '', transportadora: ticket.transportadora ?? '', nf: ticket.nf ?? '',
@@ -36,7 +34,7 @@ export default function DetalhesTicket({ ticket, bloqueado, onSalvo }: Props) {
   }, [ticket]);
 
   const campos = ticket.campos ?? {};
-  const ve = (k: string) => (campos[k]?.estado ?? 'opcional') !== 'oculto';
+  const ve = (k: string) => Boolean(campos[k]) && campos[k].estado !== 'oculto';
   const ob = (k: string) => campos[k]?.estado === 'obrigatorio';
   const rot = (k: string, padrao: string) => `${campos[k]?.rotulo ?? padrao}${ob(k) ? ' *' : ''}`;
 
@@ -96,27 +94,19 @@ export default function DetalhesTicket({ ticket, bloqueado, onSalvo }: Props) {
       {erro && <p className="erro pequeno">{erro}</p>}
       {falta.length > 0 && !bloqueado && <p className="aviso-falta">Para fechar falta: <b>{falta.join(', ')}</b></p>}
 
-      <div className="det-pub">
+      {ve('publico') && <div className="det-pub">
         {(['lojista', 'consumidor'] as const).map((p) => (
           <button key={p} type="button" disabled={bloqueado} className={ticket.publico === p ? 'ativo' : ''} onClick={() => ticket.publico !== p && void salvar({ publico: p })}>
             {p === 'lojista' ? 'Lojista (PJ)' : 'Consumidor final'}
           </button>
         ))}
-      </div>
+      </div>}
 
       {ve('cliente') && (
         <div className="det-campo">
           <span>{rot('cliente', 'Cliente')}</span>
           <button type="button" className="btn sm ghost" disabled={bloqueado} onClick={() => setBuscaCli(true)}>Buscar / vincular cliente do portal</button>
         </div>
-      )}
-      {ve('categoria') && (
-        <label className="det-campo">{rot('categoria', 'Categoria')}
-          <select disabled={bloqueado} value={form.categoria ?? ''} onChange={(e) => { setForm({ ...form, categoria: e.target.value }); void salvar({ categoria: e.target.value }); }}>
-            <option value="">—</option>
-            {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </label>
       )}
       <div className="det-grid">
         {campoTexto('prazo', 'Prazo', { tipo: 'date' })}

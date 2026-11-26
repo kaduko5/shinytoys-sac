@@ -36,7 +36,6 @@ export default function NovoTicket({ perfil, setores, tipos, onFechar, onAberto 
   const [buscaCli, setBuscaCli] = useState(false);
   const [campos, setCampos] = useState<Record<string, CampoEfetivo>>({});
   const [extra, setExtra] = useState<Record<string, string>>({});
-  const [cats, setCats] = useState<string[]>([]);
   const [atendentes, setAtendentes] = useState<Atendente[]>([]);
   const [responsavel, setResponsavel] = useState('');
 
@@ -47,7 +46,6 @@ export default function NovoTicket({ perfil, setores, tipos, onFechar, onAberto 
     if (tipoSel) { setSetorId(tipoSel.setor_padrao); if (tipoSel.prioridade_padrao) setPrioridade(tipoSel.prioridade_padrao); }
   }, [tipoSel]);
   useEffect(() => { api.listarCampos(tipoId || null).then((r) => setCampos(r.efetivos)).catch(() => {}); }, [tipoId]);
-  useEffect(() => { api.listarCategorias().then(setCats).catch(() => {}); }, []);
   useEffect(() => { api.listarAtendentes(setorId).then((l) => setAtendentes(l.filter((a) => a.ativo))).catch(() => {}); }, [setorId]);
   useEffect(() => { if (tipoSel && tipoSel.publico !== publico && tipoSel.publico !== 'ambos') setTipoId(''); }, [publico, tipoSel]);
 
@@ -77,7 +75,7 @@ export default function NovoTicket({ perfil, setores, tipos, onFechar, onAberto 
         p_portal_chave: cliente?.origem === 'portal' ? cliente.id : null,
       };
       const campos: Record<string, unknown> = {};
-      for (const k of ['categoria', 'pedido', 'nf', 'transportadora', 'prazo', 'proxima_acao', 'vendedor']) if (extra[k]?.trim()) campos[k] = extra[k].trim();
+      for (const k of ['pedido', 'nf', 'transportadora', 'prazo', 'proxima_acao', 'vendedor']) if (extra[k]?.trim()) campos[k] = extra[k].trim();
       if (!atribuir && responsavel) campos.atribuido_a = responsavel;
       if (Object.keys(campos).length) body.p_campos = campos;
       if (canal === 'whatsapp') {
@@ -175,13 +173,6 @@ export default function NovoTicket({ perfil, setores, tipos, onFechar, onAberto 
       {tipoSel?.proxima_acao && <p className="pequeno muted">Próxima ação padrão: <b>{tipoSel.proxima_acao}</b></p>}
       {(tipoSel?.checklist?.length ?? 0) > 0 && <p className="pequeno muted">Checklist: {tipoSel?.checklist?.join(' · ')}</p>}
       <div className="grid2">
-        {ve('categoria') && !tipoSel?.categoria && (
-          <label>{rot('categoria', 'Categoria')}
-            <select value={extra.categoria ?? ''} onChange={(e) => setExtra({ ...extra, categoria: e.target.value })}>
-              <option value="">—</option>{cats.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </label>
-        )}
         {ve('responsavel') && !atribuir && (
           <label>{rot('responsavel', 'Responsável')}
             <select value={responsavel} onChange={(e) => setResponsavel(e.target.value)}>
